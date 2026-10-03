@@ -1,0 +1,38 @@
+# KariManager
+
+一个轻量、免安装的 MMD 借物管理工具。保存素材、作者、来源链接和本地路径，生成借物表，也能查到素材用在哪些作品里、用过几次。
+
+## 使用
+
+解压 Windows 便携包，运行 `KariManager.exe`。数据默认保存在程序旁的 `data` 文件夹，搬动程序时一起带走即可。请放在可写的目录；系统需要 [WebView2 运行时](https://developer.microsoft.com/microsoft-edge/webview2/)。
+
+1. 在资料库添加素材。作者必填，名称、来源链接、本地路径至少填一项，还可以添加备注。
+2. 制作借物表时，选择节点和素材，调整顺序与输出格式。
+3. 点击输出，复制文本或保存 TXT，同时保存作品记录。再次输出同一作品会更新记录；制作另一份作品时点击“新作品”。
+4. 打开素材详情，查看使用次数和关联作品。
+
+内置中文、普通英文、花体英文和日文模板。分隔符、空行、标题装饰和日文敬称都可以修改；英文提供 20 种 Unicode 字符样式，复制后仍能保留样式。
+
+```text
+【借物表】
+【音乐】歌曲标题 — 作者甲
+【模型】作者乙 / 作者丙
+【动作】作者乙
+```
+
+可以自建领域、节点和作品预设，通过 JSON 导入或导出。模板写法见 [输出模板文档](docs/output-template-language.md)。
+
+素材目录可以按类别管理、浏览和筛选文件。资料库支持搜索，设置中可以备份、恢复资料或迁移数据目录。
+
+## 开发
+
+使用 Tauri 2、React、TypeScript 和 SQLite。需要 Node.js 20+、Rust stable MSVC、Visual Studio C++ Build Tools 与 Windows SDK。
+
+```powershell
+npm ci
+npm run desktop
+```
+
+`npm run dev` 可在浏览器预览界面，`npm run verify` 运行类型检查和单元测试，`npm run portable` 构建 Windows x64 便携包。更多检查方式见 [参与开发](CONTRIBUTING.md)。
+
+采用 [MIT 许可证](LICENSE)。
