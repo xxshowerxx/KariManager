@@ -16,9 +16,30 @@ try {
   Copy-Item -LiteralPath (Join-Path $workspace 'src-tauri/target/release/kari-manager.exe') -Destination (Join-Path $portableFolder 'KariManager.exe')
   Copy-Item -LiteralPath (Join-Path $workspace 'README.md') -Destination $portableFolder
   Copy-Item -LiteralPath (Join-Path $workspace 'LICENSE') -Destination $portableFolder
-  Copy-Item -LiteralPath (Join-Path $workspace 'docs') -Destination $portableFolder -Recurse -Force
+  $publicDocs = @('output-template-language.md')
+  $portableDocs = Join-Path $portableFolder 'docs'
+  New-Item -ItemType Directory -Force -Path $portableDocs | Out-Null
+  foreach ($document in $publicDocs) {
+    Copy-Item -LiteralPath (Join-Path $workspace "docs/$document") -Destination $portableDocs -Force
+  }
+  # 单独准备归档文档，避免旧便携目录里的调研或个人文件进入压缩包。
+  $stagingRoot = Join-Path $workspace ".tooling/portable/$([guid]::NewGuid().ToString('N'))"
+  $archiveDocs = Join-Path $stagingRoot 'docs'
+  New-Item -ItemType Directory -Force -Path $archiveDocs | Out-Null
   $archive = "$portableFolder.zip"
-  Compress-Archive -LiteralPath (Join-Path $portableFolder 'KariManager.exe'), (Join-Path $portableFolder 'README.md'), (Join-Path $portableFolder 'LICENSE'), (Join-Path $portableFolder 'docs') -DestinationPath $archive -Force
+  try {
+    foreach ($document in $publicDocs) {
+      Copy-Item -LiteralPath (Join-Path $workspace "docs/$document") -Destination $archiveDocs
+    }
+    Compress-Archive -LiteralPath (Join-Path $portableFolder 'KariManager.exe'), (Join-Path $portableFolder 'README.md'), (Join-Path $portableFolder 'LICENSE'), $archiveDocs -DestinationPath $archive -Force
+  } finally {
+    $resolvedStaging = [System.IO.Path]::GetFullPath($stagingRoot)
+    $stagingParent = [System.IO.Path]::GetFullPath((Join-Path $workspace '.tooling/portable')) + [System.IO.Path]::DirectorySeparatorChar
+    if (-not $resolvedStaging.StartsWith($stagingParent, [System.StringComparison]::OrdinalIgnoreCase)) {
+      throw 'Package staging directory is outside the workspace'
+    }
+    Remove-Item -LiteralPath $resolvedStaging -Recurse -Force
+  }
   $archiveStream = [System.IO.File]::OpenRead($archive)
   $hashEngine = [System.Security.Cryptography.SHA256]::Create()
   try { $hash = [System.BitConverter]::ToString($hashEngine.ComputeHash($archiveStream)).Replace('-', '').ToLowerInvariant() }

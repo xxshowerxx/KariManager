@@ -1,15 +1,38 @@
+# 依赖与构建产物
 node_modules/
-*.tsbuildinfo
-src-tauri/gen/
 dist/
-src-tauri/target/
-.tooling/
+*.tsbuildinfo
+/src-tauri/gen/
+/src-tauri/target/
+/release/
+
+# 本地调研与开发记录
+/docs/research/
+/docs/product-design.md
+/docs/source-category-presets.md
+/docs/ui-design.md
+/docs/validation.md
+/.tooling/
+
+# 个人数据与环境配置
 data/
-release/
-test-results/
-playwright-report/
-.env*
 *.db
 *.db-shm
 *.db-wal
+.env
+.env.*
+!.env.example
+
+# 测试报告、缓存与日志
+test-results/
+playwright-report/
+coverage/
+.cache/
 *.log
+
+# 编辑器与系统文件
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini

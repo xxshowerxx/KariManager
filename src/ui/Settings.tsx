@@ -12,10 +12,7 @@ export function Settings({ onImport }: { onImport: () => void }) {
   }, []);
   return (
     <>
-      <PageHeader
-        title="数据与设置"
-        description="KariManager · 0.1.0"
-      />
+      <PageHeader title="数据与设置" description="KariManager · 0.1.0" />
       <div className="settings-grid">
         <article className="card">
           <span className="eyebrow">存储与备份</span>
