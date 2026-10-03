@@ -224,6 +224,12 @@ describe("Unicode字符样式", () => {
   });
 });
 describe("预设分享与恢复", () => {
+  it("独立输出模板可分享，空来源分类的备份不能恢复", () => {
+    const s = defaults();
+    const bundle = share(s, "template", s.templates[0].id);
+    expect(() => readImport(JSON.stringify(bundle))).not.toThrow();
+    expect(() => parseState({ ...s, sourcePresets: [] })).toThrow();
+  });
   it("默认分享去掉固定素材和私人数据，可选公开素材也移除本地路径", () => {
     const { s, d } = fixture();
     s.workPresets.push({
@@ -264,6 +270,9 @@ describe("预设分享与恢复", () => {
       merged.workPresets[1].bindings.find((b) => b.materialIds.length)!
         .materialIds,
     ).toEqual([merged.materials[1].id]);
+    expect(merged.materials[1].sourcePresetId).toBe(
+      merged.sourcePresets.at(-1)!.id,
+    );
     expect(merged.materials[1].groups[0].partyIds).toEqual([
       merged.parties[1].id,
     ]);

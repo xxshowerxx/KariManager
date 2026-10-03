@@ -101,6 +101,12 @@ export function share(
       m.relativePath = "";
       m.note = "";
     }
+    data.sourcePresets ||= [];
+    for (const id of new Set(data.materials.map((m) => m.sourcePresetId))) {
+      const preset = s.sourcePresets.find((p) => p.id === id);
+      if (preset && !data.sourcePresets.some((p) => p.id === id))
+        data.sourcePresets.push(clone(preset));
+    }
     const partyIds = new Set(
       data.materials.flatMap((m) => m.groups.flatMap((g) => g.partyIds)),
     );
@@ -112,6 +118,7 @@ export function share(
         b.materialIds = [];
         b.titleOverrides = {};
       }
+  for (const key of sharedKeys) if (data[key]?.length === 0) delete data[key];
   return {
     schemaVersion: 1,
     kind: "kari-presets",
