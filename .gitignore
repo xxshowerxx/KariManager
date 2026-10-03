@@ -1,4 +1,6 @@
 node_modules/
+*.tsbuildinfo
+src-tauri/gen/
 dist/
 src-tauri/target/
 .tooling/

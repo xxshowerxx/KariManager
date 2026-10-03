@@ -1,0 +1,27 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "KariManager",
+  "version": "0.1.0",
+  "identifier": "io.karimanager.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "KariManager · 借物有据",
+        "width": 1280,
+        "height": 860,
+        "minWidth": 960,
+        "minHeight": 640
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": { "active": false }
+}
