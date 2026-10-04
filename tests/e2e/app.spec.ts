@@ -1,4 +1,50 @@
 import { test, expect } from "@playwright/test";
+test("素材和目录共用类别建议，空白默认、输入过滤和新类别保存", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "＋ 添加素材", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  const category = dialog.getByLabel("素材类别", { exact: true });
+  await expect(category).toHaveValue("");
+  await expect(
+    dialog.getByText("未创建的类别自动创建", { exact: true }),
+  ).toBeVisible();
+  await expect(dialog.locator("datalist option[value='动作']")).toHaveCount(1);
+  await expect(dialog.locator("datalist option[value='模型']")).toHaveCount(1);
+  await category.fill("动");
+  await expect(dialog.locator("datalist option[value='动作']")).toHaveCount(1);
+  await expect(dialog.locator("datalist option[value='模型']")).toHaveCount(0);
+  await category.fill(" 自制素材 ");
+  await dialog.getByLabel("素材名称", { exact: true }).fill("类别测试素材");
+  await dialog.getByLabel("作者", { exact: true }).fill("测试作者");
+  await dialog.getByLabel("作者", { exact: true }).press("Enter");
+  await dialog.getByRole("button", { name: "保存素材", exact: true }).click();
+  await expect(
+    page.getByRole("cell", { name: "类别测试素材 自制素材", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "素材目录", exact: true }).click();
+  await page.getByRole("button", { name: "＋ 添加目录", exact: true }).click();
+  await expect(category).toHaveValue("");
+  await expect(dialog.locator("datalist option[value='自制素材']")).toHaveCount(
+    1,
+  );
+  await dialog.getByLabel("目录名称", { exact: true }).fill("练习目录");
+  await dialog.getByLabel("本地目录").fill("D:/素材/练习");
+  await category.fill(" 练习动作 ");
+  await dialog.getByRole("button", { name: "保存目录", exact: true }).click();
+  await page.reload();
+  await page.getByRole("button", { name: /^资料库$/ }).click();
+  await page.getByRole("button", { name: "＋ 添加素材", exact: true }).click();
+  await expect(category).toHaveValue("");
+  await expect(dialog.locator("datalist option[value='自制素材']")).toHaveCount(
+    1,
+  );
+  await expect(dialog.locator("datalist option[value='练习动作']")).toHaveCount(
+    1,
+  );
+});
+
 test("模板语言切换、默认敬称与保存后重载", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "预设", exact: true }).click();

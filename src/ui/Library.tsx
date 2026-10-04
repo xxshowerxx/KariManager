@@ -15,6 +15,7 @@ import {
 } from "../core/model";
 import { store, useStateData } from "../store";
 import * as platform from "../platform";
+import { MaterialCategoryField } from "./MaterialCategoryField";
 import {
   Empty,
   Field,
@@ -77,6 +78,7 @@ export function MaterialEditor({
     await task(async () => {
       await store.update((d) => {
         const value = clone(m);
+        value.category = value.category.trim();
         value.sources = cleanLines(value.sources.join("\n"));
         value.tags = value.tags.map((t) => t.trim()).filter(Boolean);
         for (const p of pending) {
@@ -117,34 +119,10 @@ export function MaterialEditor({
               placeholder="可选，便于查找"
             />
           </Field>
-          <Field label="收藏分类">
-            <input
-              list="material-categories"
-              value={m.category}
-              onChange={(e) => patch({ category: e.target.value })}
-            />
-            <datalist id="material-categories">
-              {[
-                "模型",
-                "动作",
-                "镜头",
-                "音乐",
-                "场景",
-                "特效",
-                "配件",
-                "表情",
-                "口型",
-                "编舞",
-                "工具",
-                "插件",
-                ...s.materials.map((m) => m.category),
-              ]
-                .filter((v, i, a) => a.indexOf(v) === i)
-                .map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-            </datalist>
-          </Field>
+          <MaterialCategoryField
+            value={m.category}
+            onChange={(category) => patch({ category })}
+          />
           <Field
             label="来源链接"
             hint="可选，每行一个；名称、链接、本地路径至少填一项"
@@ -512,7 +490,9 @@ export function Library({ onOpenWork }: { onOpenWork: (w: Work) => void }) {
               onChange={(e) => setCategory(e.target.value)}
             >
               <option value="">所有分类</option>
-              {[...new Set(s.materials.map((m) => m.category))].map((c) => (
+              {[
+                ...new Set(s.materials.map((m) => m.category).filter(Boolean)),
+              ].map((c) => (
                 <option key={c}>{c}</option>
               ))}
             </select>

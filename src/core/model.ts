@@ -331,7 +331,7 @@ export function newMaterial(p: SourcePreset): Material {
     relativePath: "",
     note: "",
     tags: [],
-    category: "模型",
+    category: "",
     sourcePresetId: p.id,
     groups: p.categories.map((category) => ({
       category: clone(category),

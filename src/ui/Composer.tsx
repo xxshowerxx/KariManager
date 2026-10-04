@@ -56,9 +56,11 @@ export function MaterialPicker({
           onChange={(e) => setCategory(e.target.value)}
         >
           <option value="">所有分类</option>
-          {[...new Set(s.materials.map((m) => m.category))].map((c) => (
-            <option key={c}>{c}</option>
-          ))}
+          {[...new Set(s.materials.map((m) => m.category).filter(Boolean))].map(
+            (c) => (
+              <option key={c}>{c}</option>
+            ),
+          )}
         </select>
       </div>
       <div className="picker-list">

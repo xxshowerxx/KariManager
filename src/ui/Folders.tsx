@@ -10,6 +10,7 @@ import {
 import { store, useStateData } from "../store";
 import * as platform from "../platform";
 import { MaterialEditor } from "./Library";
+import { MaterialCategoryField } from "./MaterialCategoryField";
 import { Empty, Field, Modal, PageHeader, useNotice, useTask } from "./common";
 export function Folders() {
   const s = useStateData(),
@@ -49,7 +50,7 @@ export function Folders() {
                 id: uid(),
                 name: "",
                 path: "",
-                category: "模型",
+                category: "",
                 recursive: true,
                 extensions: [],
                 sourcePresetId: s.sourcePresets[0].id,
@@ -189,6 +190,7 @@ export function Folders() {
                   const i = d.folders.findIndex((f) => f.id === edit.id);
                   const value = {
                     ...edit,
+                    category: edit.category.trim(),
                     extensions: edit.extensions
                       .map((x) => x.trim())
                       .filter(Boolean),
@@ -231,12 +233,10 @@ export function Folders() {
                 </button>
               </div>
             </Field>
-            <Field label="素材类别">
-              <input
-                value={edit.category}
-                onChange={(e) => setEdit({ ...edit, category: e.target.value })}
-              />
-            </Field>
+            <MaterialCategoryField
+              value={edit.category}
+              onChange={(category) => setEdit({ ...edit, category })}
+            />
             <Field label="默认来源分类">
               <select
                 value={edit.sourcePresetId}
