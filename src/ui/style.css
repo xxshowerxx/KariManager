@@ -866,6 +866,51 @@ td button {
   background: #f5f5f5;
   border: 1px solid #ddd;
 }
+.directory-entry {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.directory-entry > .directory-entry-name {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.directory-entry > .directory-actions {
+  flex: 0 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+}
+.directory-actions .local-file-actions {
+  display: contents;
+}
+.directory-toolbar {
+  margin: 10px 0;
+}
+.note-file-list {
+  max-height: 55vh;
+  overflow: auto;
+}
+.note-file-list .section-line {
+  padding: 8px 0;
+  border-bottom: 1px solid #ddd;
+  gap: 12px;
+}
+.note-file-list span {
+  overflow-wrap: anywhere;
+}
+.merge-nodes {
+  margin: 8px 0;
+}
+.merge-nodes summary {
+  cursor: pointer;
+  color: #555;
+}
+.merge-nodes .check {
+  display: inline-flex;
+  margin: 8px 12px 0 0;
+}
 .import-summary > div {
   display: flex;
   justify-content: space-between;

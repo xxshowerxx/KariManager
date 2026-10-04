@@ -1,17 +1,28 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   clone,
+  materialName,
   materialPath,
   newMaterial,
   uid,
   type Folder,
   type Material,
 } from "../core/model";
+import {
+  extensionList,
+  filteredEntries,
+  folderCategories,
+  importConflict,
+  pathKey,
+  within,
+} from "../core/files";
 import { store, useStateData } from "../store";
 import * as platform from "../platform";
 import { MaterialEditor } from "./Library";
+import { LocalFileActions } from "./LocalFileActions";
 import { MaterialCategoryField } from "./MaterialCategoryField";
 import { Empty, Field, Modal, PageHeader, useNotice, useTask } from "./common";
+
 export function Folders() {
   const s = useStateData(),
     task = useTask(),
@@ -21,22 +32,132 @@ export function Folders() {
     [entries, setEntries] = useState<platform.Entry[]>([]),
     [q, setQ] = useState(""),
     [loading, setLoading] = useState(false),
-    [material, setMaterial] = useState<Material | null>(null);
+    [material, setMaterial] = useState<Material | null>(null),
+    [expanded, setExpanded] = useState<string[]>([]),
+    [all, setAll] = useState(false),
+    [showHidden, setShowHidden] = useState(false),
+    [deleteEntry, setDeleteEntry] = useState<platform.Entry | null>(null);
+  const request = useRef(0);
   const folder = s.folders.find((f) => f.id === selected);
-  async function browse(f: Folder) {
+  async function browse(f: Folder, reset = false) {
+    const token = ++request.current;
     setSelected(f.id);
     setEntries([]);
     setLoading(true);
+    if (reset) {
+      setExpanded([]);
+      setQ("");
+      setAll(false);
+      setShowHidden(false);
+    }
     await task(async () => {
-      const result = await platform.listDirectory(
-        f.path,
-        f.recursive,
-        f.extensions,
-      );
+      const result = await platform.listDirectory(f.path, f.recursive, []);
+      if (token !== request.current) return;
       setEntries(result.entries);
-      if (result.truncated) notice("目录超过两万条，已截断。建议缩小目录范围");
+      if (result.truncated) notice("目录超过两万条，已截断");
     });
-    setLoading(false);
+    if (token === request.current) setLoading(false);
+  }
+  const visible = folder
+    ? filteredEntries(entries, folder, all, showHidden, q)
+    : [];
+  const parentKey = (path: string) =>
+    pathKey(path).split("/").slice(0, -1).join("/");
+  const children = new Map<string, platform.Entry[]>();
+  for (const entry of visible) {
+    const parent = parentKey(entry.relativePath);
+    const list = children.get(parent) ?? [];
+    list.push(entry);
+    children.set(parent, list);
+  }
+  function tree(parent = "", depth = 0) {
+    return (children.get(parent) ?? []).map((e) => {
+      const key = pathKey(e.relativePath),
+        open = expanded.includes(key) || !!q;
+      const hidden = folder?.hiddenPaths?.some((p) =>
+        within(e.relativePath, p),
+      );
+      const conflict = importConflict(e.path, e.directory, s);
+      return (
+        <div key={e.path}>
+          <div
+            className={`directory-entry ${hidden ? "muted" : ""}`}
+            style={{ paddingLeft: depth * 18 }}
+          >
+            <div className="directory-entry-name">
+              <strong>
+                {e.directory ? "▱" : "◇"} {e.name}
+              </strong>
+              <small>{e.relativePath}</small>
+              {conflict && <small>已录入：{materialName(conflict)}</small>}
+            </div>
+            <div className="small-actions directory-actions">
+              {e.directory && (
+                <button
+                  onClick={() =>
+                    setExpanded(
+                      open
+                        ? expanded.filter((x) => x !== key)
+                        : [...expanded, key],
+                    )
+                  }
+                >
+                  {open ? "收起" : "展开"}
+                </button>
+              )}
+              <button
+                onClick={() => void task(() => platform.openTarget(e.path))}
+              >
+                打开
+              </button>
+              <LocalFileActions path={e.path} compact />
+              <button
+                disabled={!!conflict}
+                onClick={() => {
+                  if (!folder) return;
+                  const preset =
+                    s.sourcePresets.find(
+                      (p) => p.id === folder.sourcePresetId,
+                    ) || s.sourcePresets[0];
+                  const categories = folderCategories(folder);
+                  setMaterial({
+                    ...newMaterial(preset),
+                    name: e.name,
+                    path: e.path,
+                    pathKind: e.directory ? "directory" : "file",
+                    folderId: folder.id,
+                    relativePath: e.relativePath,
+                    category: categories.length === 1 ? categories[0] : "",
+                  });
+                }}
+              >
+                录入
+              </button>
+              <button
+                onClick={() =>
+                  void task(() =>
+                    store.update((d) => {
+                      const f = d.folders.find((f) => f.id === selected)!;
+                      f.hiddenPaths = hidden
+                        ? (f.hiddenPaths ?? []).filter(
+                            (p) => !within(e.relativePath, p),
+                          )
+                        : [...(f.hiddenPaths ?? []), e.relativePath];
+                    }),
+                  )
+                }
+              >
+                {hidden ? "取消隐藏" : "隐藏"}
+              </button>
+              <button className="text danger" onClick={() => setDeleteEntry(e)}>
+                删除
+              </button>
+            </div>
+          </div>
+          {e.directory && open && tree(key, depth + 1)}
+        </div>
+      );
+    });
   }
   return (
     <>
@@ -51,8 +172,10 @@ export function Folders() {
                 name: "",
                 path: "",
                 category: "",
+                categories: [],
                 recursive: true,
                 extensions: [],
+                excludedExtensions: ["txt", "md"],
                 sourcePresetId: s.sourcePresets[0].id,
               })
             }
@@ -68,11 +191,20 @@ export function Folders() {
               className={`card ${selected === f.id ? "selected" : ""}`}
               key={f.id}
             >
-              <span className="badge">{f.category || "未分类"}</span>
+              <div className="chips">
+                {(folderCategories(f).length
+                  ? folderCategories(f)
+                  : ["未分类"]
+                ).map((c) => (
+                  <span className="badge" key={c}>
+                    {c}
+                  </span>
+                ))}
+              </div>
               <h3>{f.name}</h3>
               <p className="path-text">{f.path}</p>
               <div className="small-actions">
-                <button onClick={() => void browse(f)}>浏览文件</button>
+                <button onClick={() => void browse(f, true)}>浏览文件</button>
                 <button onClick={() => setEdit(clone(f))}>编辑 / 重定位</button>
                 <button
                   className="text danger"
@@ -89,11 +221,12 @@ export function Folders() {
                           }
                           d.folders = d.folders.filter((x) => x.id !== f.id);
                           if (selected === f.id) {
+                            ++request.current;
                             setSelected("");
                             setEntries([]);
                           }
                         }),
-                      "已移除目录映射，本地文件保留",
+                      "已移除目录映射",
                     )
                   }
                 >
@@ -113,7 +246,16 @@ export function Folders() {
           <div className="section-line">
             <h3>{folder?.name || "本地文件"}</h3>
             {folder && (
-              <button onClick={() => void browse(folder)}>刷新</button>
+              <div className="small-actions">
+                <button
+                  onClick={() =>
+                    void task(() => platform.openTarget(folder.path))
+                  }
+                >
+                  打开目录
+                </button>
+                <button onClick={() => void browse(folder)}>刷新</button>
+              </div>
             )}
           </div>
           <input
@@ -123,58 +265,47 @@ export function Folders() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
+          {folder && (
+            <div className="small-actions directory-toolbar">
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={all}
+                  onChange={(e) => setAll(e.target.checked)}
+                />
+                显示全部
+              </label>
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={showHidden}
+                  onChange={(e) => setShowHidden(e.target.checked)}
+                />
+                显示隐藏
+              </label>
+              {showHidden && !!folder.hiddenPaths?.length && (
+                <button
+                  onClick={() =>
+                    void task(() =>
+                      store.update((d) => {
+                        d.folders.find((f) => f.id === selected)!.hiddenPaths =
+                          [];
+                      }),
+                    )
+                  }
+                >
+                  取消全部隐藏
+                </button>
+              )}
+            </div>
+          )}
           {loading ? (
             <p>正在读取目录…</p>
           ) : folder ? (
-            <>
-              <p className="muted">
-                {entries.length} 条 ·{" "}
-                {folder.recursive ? "含子文件夹" : "当前文件夹"}
-              </p>
-              <div className="directory-entries">
-                {entries
-                  .filter((e) =>
-                    e.relativePath.toLowerCase().includes(q.toLowerCase()),
-                  )
-                  .map((e) => (
-                    <div className="directory-entry" key={e.path}>
-                      <div>
-                        <strong>
-                          {e.directory ? "▱" : "◇"} {e.name}
-                        </strong>
-                        <small>{e.relativePath}</small>
-                      </div>
-                      <button
-                        onClick={() =>
-                          void task(() => platform.openTarget(e.path))
-                        }
-                      >
-                        打开
-                      </button>
-                      {!e.directory && (
-                        <button
-                          onClick={() => {
-                            const p =
-                              s.sourcePresets.find(
-                                (p) => p.id === folder.sourcePresetId,
-                              ) || s.sourcePresets[0];
-                            setMaterial({
-                              ...newMaterial(p),
-                              name: e.name,
-                              path: e.path,
-                              folderId: folder.id,
-                              relativePath: e.relativePath,
-                              category: folder.category,
-                            });
-                          }}
-                        >
-                          录入
-                        </button>
-                      )}
-                    </div>
-                  ))}
-              </div>
-            </>
+            <div className="directory-entries">
+              {tree()}
+              {!visible.length && <Empty title="暂无文件" />}
+            </div>
           ) : (
             <Empty title="选择目录浏览" />
           )}
@@ -186,20 +317,24 @@ export function Folders() {
             onSubmit={(e) => {
               e.preventDefault();
               void task(async () => {
+                const value = {
+                  ...edit,
+                  categories: folderCategories(edit)
+                    .map((x) => x.trim())
+                    .filter(Boolean),
+                  extensions: extensionList(edit.extensions.join(",")),
+                  excludedExtensions: extensionList(
+                    (edit.excludedExtensions ?? ["txt", "md"]).join(","),
+                  ),
+                };
+                value.category = value.categories[0] ?? "";
                 await store.update((d) => {
                   const i = d.folders.findIndex((f) => f.id === edit.id);
-                  const value = {
-                    ...edit,
-                    category: edit.category.trim(),
-                    extensions: edit.extensions
-                      .map((x) => x.trim())
-                      .filter(Boolean),
-                  };
                   if (i < 0) d.folders.push(value);
                   else d.folders[i] = value;
                 });
                 setEdit(null);
-                setEntries([]);
+                if (selected === value.id) await browse(value, true);
               }, "目录映射已保存");
             }}
           >
@@ -216,6 +351,7 @@ export function Folders() {
             >
               <div className="input-action">
                 <input
+                  aria-label="本地目录"
                   required
                   value={edit.path}
                   onChange={(e) => setEdit({ ...edit, path: e.target.value })}
@@ -234,10 +370,14 @@ export function Folders() {
               </div>
             </Field>
             <MaterialCategoryField
-              value={edit.category}
-              onChange={(category) => setEdit({ ...edit, category })}
+              value=""
+              onChange={() => {}}
+              values={folderCategories(edit)}
+              onValuesChange={(categories) =>
+                setEdit({ ...edit, categories, category: categories[0] ?? "" })
+              }
             />
-            <Field label="默认来源分类">
+            <Field label="默认来源预设">
               <select
                 value={edit.sourcePresetId}
                 onChange={(e) =>
@@ -260,9 +400,18 @@ export function Folders() {
                 onChange={(e) =>
                   setEdit({
                     ...edit,
-                    extensions: e.target.value
-                      .split(/[,，]/)
-                      .map((x) => x.trim().replace(/^\./, "")),
+                    extensions: e.target.value.split(/[,，]/),
+                  })
+                }
+              />
+            </Field>
+            <Field label="排除扩展名">
+              <input
+                value={(edit.excludedExtensions ?? ["txt", "md"]).join(", ")}
+                onChange={(e) =>
+                  setEdit({
+                    ...edit,
+                    excludedExtensions: e.target.value.split(/[,，]/),
                   })
                 }
               />
@@ -288,6 +437,26 @@ export function Folders() {
       )}
       {material && (
         <MaterialEditor initial={material} onClose={() => setMaterial(null)} />
+      )}
+      {deleteEntry && folder && (
+        <Modal title="移入回收站" onClose={() => setDeleteEntry(null)}>
+          <p className="path-text">{deleteEntry.path}</p>
+          <footer className="modal-footer">
+            <button onClick={() => setDeleteEntry(null)}>取消</button>
+            <button
+              className="danger"
+              onClick={() =>
+                void task(async () => {
+                  await platform.recycleEntry(folder.path, deleteEntry.path);
+                  setDeleteEntry(null);
+                  await browse(folder);
+                }, "已移入回收站")
+              }
+            >
+              移入回收站
+            </button>
+          </footer>
+        </Modal>
       )}
     </>
   );

@@ -33,7 +33,7 @@ function SourceEditor({
   const [p, set] = useState(() => clone(value));
   const task = useTask();
   return (
-    <Modal title="来源分类预设" onClose={onClose} wide>
+    <Modal title="来源预设" onClose={onClose} wide>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -44,7 +44,7 @@ function SourceEditor({
               else s.sourcePresets[i] = p;
             });
             onClose();
-          }, "来源分类预设已保存");
+          }, "来源预设已保存");
         }}
       >
         <div className="form-grid">
@@ -61,6 +61,17 @@ function SourceEditor({
               onChange={(e) => set({ ...p, target: e.target.value })}
             />
           </Field>
+        </div>
+        <div className="section-line">
+          <span />
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={!!p.showHonorific}
+              onChange={(e) => set({ ...p, showHonorific: e.target.checked })}
+            />
+            显示日语敬称
+          </label>
         </div>
         {p.categories.map((c, i) => (
           <div className="editable-row" key={c.id}>
@@ -91,21 +102,23 @@ function SourceEditor({
               />
               作者必填
             </label>
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={c.honorific}
-                onChange={(e) =>
-                  set({
-                    ...p,
-                    categories: p.categories.map((x, j) =>
-                      j === i ? { ...x, honorific: e.target.checked } : x,
-                    ),
-                  })
-                }
-              />
-              日语敬称
-            </label>
+            {p.showHonorific && (
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={c.honorific}
+                  onChange={(e) =>
+                    set({
+                      ...p,
+                      categories: p.categories.map((x, j) =>
+                        j === i ? { ...x, honorific: e.target.checked } : x,
+                      ),
+                    })
+                  }
+                />
+                日语敬称
+              </label>
+            )}
             <OrderButtons
               index={i}
               length={p.categories.length}
@@ -495,6 +508,7 @@ export function TemplateEditor({
     ["delimiter", "节点与内容分隔符"],
     ["joiner", "署名分隔符"],
     ["titleSeparator", "素材标题与署名分隔符"],
+    ["nodeJoiner", "合并节点分隔符"],
     ["suffix", "日语敬称后缀"],
   ];
   return (
@@ -574,7 +588,7 @@ export function TemplateEditor({
                   .map(([key, label]) => (
                     <Field key={key} label={label}>
                       <input
-                        value={String(t.format[key])}
+                        value={String(t.format[key] ?? "・")}
                         onChange={(e) => change(key, e.target.value)}
                       />
                     </Field>
@@ -694,7 +708,7 @@ export function Presets({
         store.update((d) => {
           if (kind === "source") {
             if (d.sourcePresets.length === 1)
-              throw new Error("至少保留一个来源分类预设");
+              throw new Error("至少保留一个来源预设");
             d.sourcePresets = d.sourcePresets.filter((x) => x.id !== id);
           }
           if (kind === "template") {
@@ -702,7 +716,7 @@ export function Presets({
               d.templates.length === 1 ||
               d.workPresets.some((p) => p.templateId === id)
             )
-              throw new Error("模板被作品预设引用或是最后一个，请保留");
+              throw new Error("模板被最终预设引用或是最后一个，请保留");
             d.templates = d.templates.filter((x) => x.id !== id);
           }
           if (kind === "node") {
@@ -792,10 +806,10 @@ export function Presets({
       />
       <div className="tabs wide-tabs">
         {[
-          ["source", "来源分类"],
-          ["domain", "领域"],
+          ["source", "来源预设"],
+          ["domain", "领域预设"],
           ["node", "节点预设"],
-          ["work", "作品预设"],
+          ["work", "最终预设"],
           ["template", "输出模板"],
         ].map(([id, name]) => (
           <button
@@ -814,7 +828,7 @@ export function Presets({
             checked={include}
             onChange={(e) => setInclude(e.target.checked)}
           />
-          导出作品预设时包含引用素材的公开信息（不含本地路径和私人备注）
+          导出最终预设时包含引用素材的公开信息
         </label>
       )}
       <div className="card-grid">
@@ -955,7 +969,7 @@ export function Presets({
           ))}
       </div>
       {tab === "work" && !s.workPresets.length && (
-        <Empty title="暂无作品预设" />
+        <Empty title="暂无最终预设" />
       )}
       {source && (
         <SourceEditor value={source} onClose={() => setSource(null)} />

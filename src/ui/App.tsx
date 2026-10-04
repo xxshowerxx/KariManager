@@ -138,7 +138,7 @@ export function App() {
           </nav>
           <div className="sidebar-foot">
             <span className="status-dot" />
-            本地保存<small>v0.1.0</small>
+            本地保存<small>v0.2.0</small>
           </div>
         </aside>
         <main className="main-content">
@@ -210,7 +210,7 @@ export function App() {
                         domains: "领域",
                         sourcePresets: "来源分类",
                         nodePresets: "节点预设",
-                        workPresets: "作品预设",
+                        workPresets: "最终预设",
                         templates: "输出模板",
                         materials: "素材",
                         parties: "常用来源",

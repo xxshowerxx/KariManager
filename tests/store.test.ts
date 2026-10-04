@@ -14,10 +14,25 @@ vi.mock("../src/platform", () => ({
   },
 }));
 import { store } from "../src/store";
+import { sourceFromFormat } from "../src/core/template";
 beforeEach(() => {
   backend.revision = 0;
   backend.fail = false;
   backend.payload = null;
+});
+it("旧可视化模板更新条件链接语法，手写模板保持不变", async () => {
+  const saved = defaults();
+  saved.templates[0].format.showSources = true;
+  saved.templates[0].source = "旧可视化来源语法";
+  saved.templates[1].mode = "code";
+  saved.templates[1].source = "个人手写模板";
+  backend.payload = saved;
+  await store.initialize();
+  expect(store.get().templates[0].source).toBe(
+    sourceFromFormat(saved.templates[0].format),
+  );
+  expect(store.get().templates[1].source).toBe("个人手写模板");
+  expect(backend.revision).toBe(1);
 });
 
 it.each(["中文清晰", "个人中文模板"])(

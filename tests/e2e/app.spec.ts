@@ -1,4 +1,98 @@
 import { test, expect } from "@playwright/test";
+test("候选只保存最终引用并按分类隔离，日语敬称列可开关", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "＋ 添加素材", exact: true }).click();
+  let dialog = page.getByRole("dialog");
+  await dialog.getByLabel("素材名称", { exact: true }).fill("候选测试");
+  await dialog.getByLabel("来源预设").selectOption("source-general");
+  await dialog.getByLabel("制作软件", { exact: true }).fill("测试软件");
+  await dialog.getByLabel("制作软件", { exact: true }).press("Enter");
+  await dialog.getByLabel("作者", { exact: true }).fill("错填作者");
+  await dialog.getByLabel("作者", { exact: true }).press("Enter");
+  await dialog
+    .getByRole("button", { name: "移除错填作者", exact: true })
+    .click();
+  await dialog.getByLabel("作者", { exact: true }).fill("正确作者");
+  await dialog.getByLabel("作者", { exact: true }).press("Enter");
+  await dialog.getByRole("button", { name: "保存素材", exact: true }).click();
+  const names = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("kari-manager-v1")!).payload.parties.map(
+      (p: { name: string }) => p.name,
+    ),
+  );
+  expect(names.sort()).toEqual(["正确作者", "测试软件"]);
+  await page.getByRole("button", { name: "＋ 添加素材", exact: true }).click();
+  await dialog.getByLabel("来源预设").selectOption("source-general");
+  const authorList = await dialog
+    .getByLabel("作者", { exact: true })
+    .getAttribute("list");
+  const softwareList = await dialog
+    .getByLabel("制作软件", { exact: true })
+    .getAttribute("list");
+  await expect(
+    dialog.locator(`datalist[id="${authorList}"] option`),
+  ).toHaveAttribute("value", "正确作者");
+  await expect(
+    dialog.locator(`datalist[id="${softwareList}"] option`),
+  ).toHaveAttribute("value", "测试软件");
+  await dialog.getByRole("button", { name: "取消", exact: true }).click();
+  await page.getByRole("button", { name: "预设", exact: true }).click();
+  await page.getByRole("button", { name: "编辑", exact: true }).first().click();
+  await expect(dialog.getByLabel("日语敬称", { exact: true })).toHaveCount(0);
+  await dialog.getByLabel("显示日语敬称", { exact: true }).check();
+  await expect(dialog.getByLabel("日语敬称", { exact: true })).toBeChecked();
+  await dialog.getByRole("button", { name: "保存预设", exact: true }).click();
+  await page.reload();
+  await page.getByRole("button", { name: "预设", exact: true }).click();
+  await page.getByRole("button", { name: "编辑", exact: true }).first().click();
+  await expect(
+    dialog.getByLabel("显示日语敬称", { exact: true }),
+  ).toBeChecked();
+});
+
+test("目录保存多个类别，合并节点只在本作品生效并保存最终预设", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "素材目录", exact: true }).click();
+  await page.getByRole("button", { name: "＋ 添加目录", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("目录名称", { exact: true }).fill("动作镜头");
+  await dialog.getByLabel("本地目录", { exact: true }).fill("D:/素材");
+  for (const name of ["动作", "镜头"]) {
+    await dialog.getByLabel("素材类别", { exact: true }).fill(name);
+    await dialog.getByLabel("素材类别", { exact: true }).press("Enter");
+  }
+  await dialog.getByLabel("扩展名筛选", { exact: true }).fill(".vmd");
+  await dialog.getByRole("button", { name: "保存目录", exact: true }).click();
+  const saved = await page.evaluate(
+    () =>
+      JSON.parse(localStorage.getItem("kari-manager-v1")!).payload.folders[0],
+  );
+  expect(saved.categories).toEqual(["动作", "镜头"]);
+  expect(saved.extensions).toEqual(["vmd"]);
+  await page.getByRole("button", { name: "制作借物表", exact: true }).click();
+  const motion = page.getByRole("region", { name: "动作节点", exact: true });
+  await motion.locator("summary").click();
+  await motion.getByLabel("镜头", { exact: true }).check();
+  await page
+    .getByRole("button", { name: "保存为最终预设", exact: true })
+    .click();
+  await dialog.getByLabel("预设名称", { exact: true }).fill("合并动作镜头");
+  await dialog.getByRole("button", { name: "保存预设", exact: true }).click();
+  const bindings = await page.evaluate(
+    () =>
+      JSON.parse(localStorage.getItem("kari-manager-v1")!).payload
+        .workPresets[0].bindings,
+  );
+  expect(
+    bindings.find((b: { nodeId: string }) => b.nodeId === "motion")
+      .mergedNodeIds,
+  ).toEqual(["camera"]);
+  await page.getByRole("button", { name: "＋ 新作品", exact: true }).click();
+  await motion.locator("summary").click();
+  await expect(motion.getByLabel("镜头", { exact: true })).not.toBeChecked();
+});
 test("素材和目录共用类别建议，空白默认、输入过滤和新类别保存", async ({
   page,
 }) => {
@@ -133,7 +227,7 @@ test("素材录入、输出、使用历史、预设与持久化", async ({ page 
     .getByRole("button", { name: "关闭", exact: true })
     .click();
   await page.getByRole("button", { name: "制作借物表" }).click();
-  await page.getByRole("button", { name: "保存为作品预设" }).click();
+  await page.getByRole("button", { name: "保存为最终预设" }).click();
   await page.getByRole("dialog").getByLabel("预设名称").fill("固定模型组合");
   await page
     .getByRole("dialog")
@@ -143,7 +237,7 @@ test("素材录入、输出、使用历史、预设与持久化", async ({ page 
   await expect(page.locator(".paper-preview")).toContainText("作者甲様");
   await page.getByRole("button", { name: "＋ 新作品" }).click();
   await page
-    .getByLabel("作品预设", { exact: true })
+    .getByLabel("最终预设", { exact: true })
     .selectOption({ label: "固定模型组合" });
   await page.getByLabel("作品标题", { exact: true }).fill("第二部作品");
   await page.getByRole("button", { name: "输出并复制", exact: true }).click();
@@ -171,7 +265,7 @@ test("预设导出导入、来源链、多个链接和作品回收", async ({ pa
   await page.getByRole("button", { name: "＋ 添加素材", exact: true }).click();
   const modal = page.getByRole("dialog");
   await modal.getByLabel("素材名称", { exact: true }).fill("资料");
-  await modal.getByLabel("来源分类预设").selectOption("source-model");
+  await modal.getByLabel("来源预设").selectOption("source-model");
   await modal.getByLabel("制作软件", { exact: true }).fill("软件甲");
   await modal.getByLabel("制作软件", { exact: true }).press("Enter");
   for (const name of ["作者甲", "作者乙"]) {
@@ -255,7 +349,7 @@ test("预设导出导入、来源链、多个链接和作品回收", async ({ pa
 test("自定义领域和模板语法校验", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "预设" }).click();
-  await page.getByRole("button", { name: "领域", exact: true }).click();
+  await page.getByRole("button", { name: "领域预设", exact: true }).click();
   await page.getByRole("button", { name: "＋ 新建", exact: true }).click();
   await page.getByRole("dialog").getByLabel("领域名称").fill("个人视频");
   await page

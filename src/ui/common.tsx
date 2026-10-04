@@ -79,12 +79,18 @@ export function Modal({
   return (
     <dialog
       ref={ref}
+      aria-label={title}
       className={wide ? "modal wide" : "modal"}
       onCancel={onClose}
     >
       <header>
         <h2>{title}</h2>
-        <button className="icon-button" aria-label="关闭" onClick={onClose}>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label="关闭"
+          onClick={onClose}
+        >
           ×
         </button>
       </header>

@@ -15,6 +15,8 @@ import {
 } from "../core/model";
 import { store, useStateData } from "../store";
 import * as platform from "../platform";
+import { importConflict, sourceCandidates } from "../core/files";
+import { LocalFileActions } from "./LocalFileActions";
 import { MaterialCategoryField } from "./MaterialCategoryField";
 import {
   Empty,
@@ -76,12 +78,15 @@ export function MaterialEditor({
   }
   async function submit() {
     await task(async () => {
+      const kind = m.pathKind ?? (await platform.pathKind(materialPath(m, s)));
       await store.update((d) => {
         const value = clone(m);
+        if (kind) value.pathKind = kind;
         value.category = value.category.trim();
         value.sources = cleanLines(value.sources.join("\n"));
         value.tags = value.tags.map((t) => t.trim()).filter(Boolean);
-        for (const p of pending) {
+        const usedIds = new Set(value.groups.flatMap((g) => g.partyIds));
+        for (const p of pending.filter((p) => usedIds.has(p.id))) {
           const duplicate = d.parties.find((x) => x.name === p.name);
           if (duplicate) {
             for (const g of value.groups)
@@ -91,6 +96,16 @@ export function MaterialEditor({
           } else d.parties.push(p);
         }
         validateMaterial(value, d);
+        if (value.path) {
+          const conflict = importConflict(
+            materialPath(value, d),
+            value.pathKind === "directory",
+            d,
+            value.id,
+          );
+          if (conflict)
+            throw new Error(`与已录入素材“${materialName(conflict)}”重叠`);
+        }
         const i = d.materials.findIndex((x) => x.id === value.id);
         if (i < 0) d.materials.push(value);
         else d.materials[i] = value;
@@ -132,16 +147,33 @@ export function MaterialEditor({
               onChange={(e) => patch({ sources: e.target.value.split("\n") })}
               placeholder="作者配布页、项目仓库或原视频链接"
             />
+            <div className="small-actions">
+              {m.sources
+                .filter((link) => /^https?:\/\//i.test(link.trim()))
+                .map((link, i) => (
+                  <button
+                    type="button"
+                    key={i}
+                    onClick={() =>
+                      void task(() => platform.openTarget(link.trim()))
+                    }
+                  >
+                    打开链接{m.sources.length > 1 ? ` ${i + 1}` : ""}
+                  </button>
+                ))}
+            </div>
           </Field>
           <Field label="本地路径">
             <div className="input-actions">
               <input
+                aria-label="本地路径"
                 value={materialPath(m, s)}
                 onChange={(e) =>
                   patch({
                     path: e.target.value,
                     folderId: "",
                     relativePath: "",
+                    pathKind: undefined,
                   })
                 }
                 placeholder="文件或文件夹"
@@ -151,7 +183,13 @@ export function MaterialEditor({
                 onClick={() =>
                   void task(async () => {
                     const path = await platform.pickPath();
-                    if (path) patch({ path, folderId: "", relativePath: "" });
+                    if (path)
+                      patch({
+                        path,
+                        folderId: "",
+                        relativePath: "",
+                        pathKind: "file",
+                      });
                   })
                 }
               >
@@ -162,19 +200,28 @@ export function MaterialEditor({
                 onClick={() =>
                   void task(async () => {
                     const path = await platform.pickPath(true);
-                    if (path) patch({ path, folderId: "", relativePath: "" });
+                    if (path)
+                      patch({
+                        path,
+                        folderId: "",
+                        relativePath: "",
+                        pathKind: "directory",
+                      });
                   })
                 }
               >
                 目录
               </button>
             </div>
+            {materialPath(m, s) && (
+              <LocalFileActions path={materialPath(m, s)} />
+            )}
           </Field>
         </div>
         <div className="section-line">
           <h3>署名来源</h3>
           <select
-            aria-label="来源分类预设"
+            aria-label="来源预设"
             value={m.sourcePresetId}
             onChange={(e) => {
               const p = s.sourcePresets.find((x) => x.id === e.target.value)!;
@@ -197,11 +244,6 @@ export function MaterialEditor({
           </select>
         </div>
         <p className="muted compact">作者必填，其余可选；输出按以下顺序连接</p>
-        <datalist id="party-names">
-          {pool.map((p) => (
-            <option key={p.id} value={p.name} />
-          ))}
-        </datalist>
         <div className="source-groups">
           {m.groups.map((g, gi) => (
             <div className="source-group" key={g.category.id}>
@@ -252,7 +294,7 @@ export function MaterialEditor({
               <div className="input-actions">
                 <input
                   aria-label={g.category.label}
-                  list="party-names"
+                  list={`party-names-${g.category.id}`}
                   value={inputs[g.category.id] || ""}
                   onChange={(e) =>
                     setInputs((x) => ({
@@ -268,6 +310,11 @@ export function MaterialEditor({
                   }}
                   placeholder="输入新条目或选择已保存来源"
                 />
+                <datalist id={`party-names-${g.category.id}`}>
+                  {sourceCandidates(s, g.category).map((p) => (
+                    <option key={p.id} value={p.name} />
+                  ))}
+                </datalist>
                 <button type="button" onClick={() => addParty(gi)}>
                   添加
                 </button>

@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import { defaults } from "./core/defaults";
 import { clone, parseState, type State } from "./core/model";
 import * as platform from "./platform";
+import { sourceFromFormat } from "./core/template";
 class Store {
   private state: State = defaults();
   private revision = 0;
@@ -21,7 +22,16 @@ class Store {
     const chinese = this.state.templates.find((t) => t.id === "template-zh");
     const renameChinese = chinese?.name === "中文清晰";
     if (chinese && renameChinese) chinese.name = "中文";
-    if (!payload || renameChinese)
+    let changed = false;
+    for (const t of this.state.templates)
+      if (t.mode === "visual") {
+        const source = sourceFromFormat(t.format);
+        if (t.source !== source) {
+          t.source = source;
+          changed = true;
+        }
+      }
+    if (!payload || renameChinese || changed)
       this.revision = await platform.persist(this.state, revision);
     this.emit();
   }

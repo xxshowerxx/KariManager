@@ -126,7 +126,10 @@ export function Composer({
   let output = "",
     error = "";
   try {
-    output = render(template.source, contextFor(s, draft, template.language));
+    output = render(
+      template.source,
+      contextFor(s, draft, template.language, template.format.nodeJoiner),
+    );
   } catch (e) {
     error = String(e);
   }
@@ -154,7 +157,7 @@ export function Composer({
           `${domain.name} ${new Date().toLocaleString("zh-CN", { hour12: false })}`;
         const text = render(
           template.source,
-          contextFor(s, value, template.language),
+          contextFor(s, value, template.language, template.format.nodeJoiner),
         );
         let id = "";
         await store.update((d) => {
@@ -190,7 +193,7 @@ export function Composer({
                 )
               }
             >
-              保存为作品预设
+              保存为最终预设
             </button>
             <button onClick={() => setDraft(draftFor(s))}>＋ 新作品</button>
           </>
@@ -237,7 +240,7 @@ export function Composer({
                   ))}
               </select>
             </Field>
-            <Field label="作品预设">
+            <Field label="最终预设">
               <select
                 value=""
                 onChange={(e) => {
@@ -370,9 +373,14 @@ export function Composer({
                       aria-label={`移除${node.label}节点`}
                       onClick={() =>
                         patch({
-                          bindings: draft.bindings.filter(
-                            (_, index) => i !== index,
-                          ),
+                          bindings: draft.bindings
+                            .filter((_, index) => i !== index)
+                            .map((x) => ({
+                              ...x,
+                              mergedNodeIds: x.mergedNodeIds?.filter(
+                                (id) => id !== b.nodeId,
+                              ),
+                            })),
                           nodePresetId: "",
                         })
                       }
@@ -381,6 +389,54 @@ export function Composer({
                     </button>
                   </div>
                 </div>
+                {node.mode !== "text" && (
+                  <details className="merge-nodes">
+                    <summary>
+                      合并节点
+                      {b.mergedNodeIds?.length
+                        ? `：${b.mergedNodeIds.map((id) => domain.nodes.find((n) => n.id === id)?.label).join("・")}`
+                        : ""}
+                    </summary>
+                    {draft.bindings
+                      .filter(
+                        (x) =>
+                          x.nodeId !== b.nodeId &&
+                          domain.nodes.find((n) => n.id === x.nodeId)?.mode !==
+                            "text",
+                      )
+                      .map((x) => {
+                        const used = draft.bindings.some(
+                          (other) =>
+                            other.nodeId !== b.nodeId &&
+                            other.mergedNodeIds?.includes(x.nodeId),
+                        );
+                        const ownerUsed = draft.bindings.some((other) =>
+                          other.mergedNodeIds?.includes(b.nodeId),
+                        );
+                        return (
+                          <label className="check" key={x.nodeId}>
+                            <input
+                              type="checkbox"
+                              checked={!!b.mergedNodeIds?.includes(x.nodeId)}
+                              disabled={
+                                used || ownerUsed || !!x.mergedNodeIds?.length
+                              }
+                              onChange={(e) =>
+                                bind(i, {
+                                  mergedNodeIds: e.target.checked
+                                    ? [...(b.mergedNodeIds ?? []), x.nodeId]
+                                    : b.mergedNodeIds?.filter(
+                                        (id) => id !== x.nodeId,
+                                      ),
+                                })
+                              }
+                            />
+                            {domain.nodes.find((n) => n.id === x.nodeId)?.label}
+                          </label>
+                        );
+                      })}
+                  </details>
+                )}
                 {node.mode === "text" ? (
                   <textarea
                     aria-label={`${node.label}文字`}
@@ -535,7 +591,7 @@ export function Composer({
         <MaterialEditor initial={editing} onClose={() => setEditing(null)} />
       )}
       {presetName !== null && (
-        <Modal title="保存作品预设" onClose={() => setPresetName(null)}>
+        <Modal title="保存最终预设" onClose={() => setPresetName(null)}>
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -558,7 +614,7 @@ export function Composer({
                   else d.workPresets[existing] = value;
                 });
                 setPresetName(null);
-              }, "作品预设已保存");
+              }, "最终预设已保存");
             }}
           >
             <Field label="预设名称">
