@@ -19,6 +19,7 @@ export const partySchema = z
     note: text,
     suffixMode: z.enum(["default", "none", "custom"]),
     suffix: text,
+    handle: text.optional(),
   })
   .strict();
 export const sourcePresetSchema = z
@@ -87,6 +88,39 @@ export const bindingSchema = z
     text,
   })
   .strict();
+export const sectionSchema = z
+  .object({
+    id,
+    kind: z.enum([
+      "credits",
+      "creators",
+      "fixedText",
+      "currentText",
+      "references",
+    ]),
+    title: text,
+    text,
+    creators: z
+      .array(
+        z
+          .object({ id, role: text, name: text, handle: text, source: text })
+          .strict(),
+      )
+      .max(1000),
+    references: z
+      .array(
+        z.object({ id, title: text, source: text, authors: list }).strict(),
+      )
+      .max(1000),
+  })
+  .strict();
+export const sectionPresetSchema = z
+  .object({
+    id,
+    name: z.string().min(1).max(100),
+    sections: z.array(sectionSchema).min(1).max(40),
+  })
+  .strict();
 export const formatSchema = z
   .object({
     header: text,
@@ -115,6 +149,11 @@ export const templateSchema = z
     source: text,
     mode: z.enum(["visual", "code"]),
     format: formatSchema,
+    layoutSource: text.optional(),
+    creatorSource: text.optional(),
+    referenceSource: text.optional(),
+    fixedTextSource: text.optional(),
+    currentTextSource: text.optional(),
   })
   .strict();
 export const workPresetSchema = z
@@ -128,6 +167,8 @@ export const workPresetSchema = z
     publicTexts: list,
     materialSnapshots: z.array(materialSchema).max(1000).optional(),
     partySnapshots: z.array(partySchema).max(40_000).optional(),
+    sectionPresetId: text.optional(),
+    sections: z.array(sectionSchema).max(40).optional(),
   })
   .strict();
 export const workSchema = z
@@ -145,6 +186,8 @@ export const workSchema = z
     output: text,
     materialSnapshots: z.array(materialSchema).max(1000).optional(),
     partySnapshots: z.array(partySchema).max(40_000).optional(),
+    sectionPresetId: text.optional(),
+    sections: z.array(sectionSchema).max(40).optional(),
     note: text.default(""),
     publishUrl: text.default(""),
     archived: z.boolean(),
@@ -177,6 +220,7 @@ export const stateSchema = z
     templates: z.array(templateSchema).min(1).max(1000),
     works: z.array(workSchema).max(100_000),
     folders: z.array(folderSchema).max(1000),
+    sectionPresets: z.array(sectionPresetSchema).max(1000).default([]),
   })
   .strict();
 export type State = z.infer<typeof stateSchema>;
@@ -193,6 +237,8 @@ export type Template = z.infer<typeof templateSchema>;
 export type WorkPreset = z.infer<typeof workPresetSchema>;
 export type Work = z.infer<typeof workSchema>;
 export type Folder = z.infer<typeof folderSchema>;
+export type OutputSection = z.infer<typeof sectionSchema>;
+export type SectionPreset = z.infer<typeof sectionPresetSchema>;
 export interface Draft {
   workId: string;
   editingPresetId?: string;
@@ -204,6 +250,8 @@ export interface Draft {
   publicTexts: string[];
   materialSnapshots?: Material[];
   partySnapshots?: Party[];
+  sectionPresetId?: string;
+  sections?: OutputSection[];
 }
 export interface MaterialSnapshots {
   materialSnapshots?: Material[];
@@ -310,6 +358,7 @@ export function parseState(value: unknown): State {
     s.templates,
     s.works,
     s.folders,
+    s.sectionPresets,
   ]) {
     if (new Set(group.map((x) => x.id)).size !== group.length)
       throw new Error("数据包含重复ID");
@@ -319,6 +368,17 @@ export function parseState(value: unknown): State {
       throw new Error("来源预设必须包含作者分类");
     if (new Set(p.categories.map((c) => c.id)).size !== p.categories.length)
       throw new Error("来源分类ID重复");
+  }
+  for (const record of [...s.sectionPresets, ...s.workPresets, ...s.works]) {
+    const sections = record.sections ?? [];
+    if (new Set(sections.map((x) => x.id)).size !== sections.length)
+      throw new Error("分栏ID重复");
+    if (sections.filter((x) => x.kind === "credits").length > 1)
+      throw new Error("借物表栏只能添加一次");
+    for (const section of sections)
+      for (const items of [section.creators, section.references])
+        if (new Set(items.map((x) => x.id)).size !== items.length)
+          throw new Error("分栏条目ID重复");
   }
   for (const d of s.domains)
     if (new Set(d.nodes.map((n) => n.id)).size !== d.nodes.length)
@@ -444,6 +504,8 @@ export function draftFor(
     nodePresetId: p?.id || "",
     templateId: s.templates[0].id,
     publicTexts: [],
+    sectionPresetId: s.sectionPresets[0]?.id ?? "",
+    sections: clone(s.sectionPresets[0]?.sections),
     bindings: nodes.map((n) => ({
       nodeId: n.id,
       materialIds: [],
@@ -466,7 +528,15 @@ export function saveWork(
   validateMerges(draft.bindings, domain);
   if (
     !draft.bindings.some((b) => b.materialIds.length || b.text.trim()) &&
-    !draft.publicTexts.some((t) => t.trim())
+    !draft.publicTexts.some((t) => t.trim()) &&
+    !draft.sections?.some((section) =>
+      section.kind === "creators"
+        ? section.creators.some((p) => p.name.trim())
+        : section.kind === "references"
+          ? section.references.some((r) => r.title.trim() || r.source.trim())
+          : (section.kind === "fixedText" || section.kind === "currentText") &&
+            section.text.trim(),
+    )
   )
     throw new Error("至少选择一份素材或填写制作署名");
   for (const b of draft.bindings) {
@@ -494,6 +564,8 @@ export function saveWork(
     templateId: draft.templateId,
     publicTexts: clone(draft.publicTexts),
     ...snapshotsFor(view, draft.bindings),
+    sectionPresetId: draft.sectionPresetId,
+    sections: clone(draft.sections),
     output,
     note: previous?.note || "",
     publishUrl: previous?.publishUrl || "",

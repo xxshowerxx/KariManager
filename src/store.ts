@@ -25,6 +25,10 @@ class Store {
     const renameChinese = chinese?.name === "中文清晰";
     if (chinese && renameChinese) chinese.name = "中文";
     let changed = false;
+    if (!this.state.sectionPresets.length) {
+      this.state.sectionPresets = defaults().sectionPresets;
+      changed = true;
+    }
     for (const t of this.state.templates)
       if (t.mode === "visual") {
         const source = sourceFromFormat(t.format);

@@ -2,6 +2,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { State } from "./core/model";
+import { sourceTarget } from "./core/sections";
 export const desktop = isTauri();
 const key = "kari-manager-v1";
 export interface Snapshot {
@@ -37,6 +38,7 @@ export async function pickPath(directory = false): Promise<string | null> {
   return open({ directory, multiple: false }) as Promise<string | null>;
 }
 export async function openTarget(target: string, reveal = false) {
+  target = sourceTarget(target);
   if (desktop) return invoke("open_target", { target, reveal });
   if (/^https?:\/\//i.test(target)) {
     window.open(target, "_blank", "noopener,noreferrer");
@@ -48,7 +50,9 @@ export async function exists(path: string): Promise<boolean> {
   if (!desktop) return false;
   return invoke("path_exists", { path });
 }
-export async function pathKind(path: string): Promise<"file" | "directory" | null> {
+export async function pathKind(
+  path: string,
+): Promise<"file" | "directory" | null> {
   return desktop ? invoke("path_kind", { path }) : null;
 }
 export async function noteFiles(target: string): Promise<Entry[]> {

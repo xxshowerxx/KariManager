@@ -1,5 +1,6 @@
 import type { Category, Format, State, Template } from "./model";
 import { sourceFromFormat } from "./template";
+import { newSection } from "./sections";
 const category = (id: string, label: string, author = false): Category => ({
   id,
   label,
@@ -114,6 +115,13 @@ export function defaults(): State {
     works: [],
     folders: [],
     workPresets: [],
+    sectionPresets: [
+      {
+        id: "sections-credits",
+        name: "借物表",
+        sections: [{ ...newSection("credits"), id: "section-credits" }],
+      },
+    ],
     domains: [
       {
         id: "mmd",

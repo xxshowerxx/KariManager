@@ -17,6 +17,7 @@ const sharedKeys = [
   "templates",
   "materials",
   "parties",
+  "sectionPresets",
 ] as const;
 const bundleSchema = z
   .object({
@@ -32,6 +33,7 @@ const bundleSchema = z
         templates: true,
         materials: true,
         parties: true,
+        sectionPresets: true,
       })
       .partial()
       .strict(),
@@ -39,7 +41,7 @@ const bundleSchema = z
   .strict();
 export type Bundle = z.infer<typeof bundleSchema>;
 export type ShareKind =
-  "all" | "domain" | "source" | "node" | "work" | "template";
+  "all" | "domain" | "source" | "node" | "work" | "template" | "section";
 export function share(
   s: State,
   kind: ShareKind,
@@ -81,6 +83,15 @@ export function share(
         : [],
   );
   data.workPresets = clone(work);
+  data.sectionPresets = clone(
+    kind === "all"
+      ? s.sectionPresets
+      : s.sectionPresets.filter((p) =>
+          kind === "section"
+            ? p.id === id
+            : work.some((w) => w.sectionPresetId === p.id),
+        ),
+  );
   const materialState = work.reduce((view, w) => withSnapshots(view, w), s);
   for (const w of data.workPresets) {
     delete w.materialSnapshots;
@@ -141,11 +152,29 @@ export function readImport(text: string): State | Bundle {
   const value: unknown = JSON.parse(text.replace(/^\uFEFF/, ""));
   if (value && typeof value === "object" && "kind" in value) {
     const b = bundleSchema.parse(value);
-    for (const t of b.data.templates || []) compile(t.source);
+    for (const t of b.data.templates || [])
+      for (const source of [
+        t.source,
+        t.layoutSource,
+        t.creatorSource,
+        t.referenceSource,
+        t.fixedTextSource,
+        t.currentTextSource,
+      ])
+        if (source !== undefined) compile(source);
     return b;
   }
   const s = parseState(value);
-  for (const t of s.templates) compile(t.source);
+  for (const t of s.templates)
+    for (const source of [
+      t.source,
+      t.layoutSource,
+      t.creatorSource,
+      t.referenceSource,
+      t.fixedTextSource,
+      t.currentTextSource,
+    ])
+      if (source !== undefined) compile(source);
   return s;
 }
 export function mergeBundle(current: State, bundle: Bundle): State {
@@ -190,6 +219,8 @@ export function mergeBundle(current: State, bundle: Bundle): State {
     p.domainId = remap("domains", oldDomain);
     p.nodePresetId = remap("nodePresets", p.nodePresetId);
     p.templateId = remap("templates", p.templateId);
+    if (p.sectionPresetId)
+      p.sectionPresetId = remap("sectionPresets", p.sectionPresetId);
     p.name += "（导入）";
     for (const b of p.bindings) {
       b.nodeId = nodes.get(`${oldDomain}:${b.nodeId}`) || b.nodeId;
@@ -212,7 +243,12 @@ export function mergeBundle(current: State, bundle: Bundle): State {
     for (const g of m.groups)
       g.partyIds = g.partyIds.map((id) => remap("parties", id));
   }
-  for (const key of ["sourcePresets", "templates", "parties"] as const)
+  for (const key of [
+    "sourcePresets",
+    "templates",
+    "parties",
+    "sectionPresets",
+  ] as const)
     for (const item of data[key] || []) {
       item.id = remap(key, item.id);
       if ("name" in item && key !== "parties") item.name += "（导入）";

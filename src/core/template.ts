@@ -14,6 +14,11 @@ export interface Row {
   note: string;
   labels?: string[];
   nodeId?: string;
+  role?: string;
+  name?: string;
+  handle?: string;
+  source?: string;
+  content?: string;
 }
 export interface Context {
   rows: Row[];
@@ -145,7 +150,19 @@ export function compile(source: string): Ast[] {
         };
         body.push(node);
         stack.push({ kind: loop[1], body: node.children });
-      } else if (tag === "#if title" || tag === "#if sources") {
+      } else if (
+        [
+          "title",
+          "sources",
+          "role",
+          "name",
+          "handle",
+          "source",
+          "credits",
+          "section.title",
+          "section.content",
+        ].some((name) => tag === "#if " + name)
+      ) {
         if (!stack.some((s) => s.kind === "rows"))
           fail("if title必须位于rows内");
         const node: Ast = {
@@ -186,7 +203,20 @@ function validateExpression(expression: string, scopes: string[]) {
     !globals.includes(name) &&
     !(
       scopes.includes("rows") &&
-      ["label", "labels", "title", "credits", "sources", "note"].includes(name)
+      [
+        "label",
+        "labels",
+        "title",
+        "credits",
+        "sources",
+        "note",
+        "role",
+        "name",
+        "handle",
+        "source",
+        "section.title",
+        "section.content",
+      ].includes(name)
     ) &&
     !(scopes.includes("texts") && name === "text")
   )
@@ -226,7 +256,18 @@ export function render(source: string, context: Context): string {
           stylize(node.title, node.options.style || "plain") +
           (node.options.right || "");
       else if (node.kind === "if") {
-        if (node.condition === "sources" ? row?.sources.length : row?.title)
+        const conditions: Record<string, unknown> = {
+          title: row?.title,
+          sources: row?.sources.length,
+          role: row?.role,
+          name: row?.name,
+          handle: row?.handle,
+          source: row?.source,
+          credits: row?.credits.length,
+          "section.title": row?.title,
+          "section.content": row?.content,
+        };
+        if (conditions[node.condition ?? "title"])
           result += nodes(node.children, row, text);
       } else if (node.kind === "rows")
         result += context.rows
@@ -257,6 +298,12 @@ export function render(source: string, context: Context): string {
           sources: (row?.sources || []).map(asCredit),
           note: row?.note || "",
           text,
+          role: row?.role ?? "",
+          name: row?.name ?? "",
+          handle: row?.handle ?? "",
+          source: row?.source ?? "",
+          "section.title": row?.title ?? "",
+          "section.content": row?.content ?? "",
         };
         let value = values[name];
         for (const f of filters) {
@@ -337,7 +384,11 @@ export function contextFor(
             const p = s.parties.find((p) => p.id === id);
             return p
               ? {
-                  name: p.name,
+                  name:
+                    p.name +
+                    (p.handle?.trim()
+                      ? "@" + p.handle.trim().replace(/^@/, "")
+                      : ""),
                   allowSuffix:
                     g.category.honorific || p.suffixMode === "custom",
                   suffixMode: p.suffixMode,
