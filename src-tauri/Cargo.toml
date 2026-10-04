@@ -1,6 +1,6 @@
 [package]
 name = "kari-manager"
-version = "0.2.0"
+version = "0.2.1"
 description = "本地素材与借物表管理器"
 authors = ["KariManager contributors"]
 edition = "2021"

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { version } from "../../package.json";
 import {
   clone,
   draftFor,
@@ -146,7 +147,7 @@ export function App() {
           </nav>
           <div className="sidebar-foot">
             <span className="status-dot" />
-            本地保存<small>v0.2.0</small>
+            本地保存<small>v{version}</small>
           </div>
         </aside>
         <main className="main-content">
