@@ -12,6 +12,7 @@ export interface Row {
   credits: Credit[];
   sources: string[];
   note: string;
+  labels?: string[];
 }
 export interface Context {
   rows: Row[];
@@ -24,7 +25,12 @@ type Ast =
   | { kind: "expr"; value: string }
   | { kind: "header"; title: string; options: Record<string, string> }
   | { kind: "blank"; n: number }
-  | { kind: "rows" | "texts" | "if"; gap: number; children: Ast[] };
+  | {
+      kind: "rows" | "texts" | "if";
+      gap: number;
+      children: Ast[];
+      condition?: string;
+    };
 type Value = string | Credit[];
 const maxLength = 100_000;
 const asCredit = (name: string): Credit => ({
@@ -131,10 +137,15 @@ export function compile(source: string): Ast[] {
         };
         body.push(node);
         stack.push({ kind: loop[1], body: node.children });
-      } else if (tag === "#if title") {
+      } else if (tag === "#if title" || tag === "#if sources") {
         if (!stack.some((s) => s.kind === "rows"))
           fail("if title必须位于rows内");
-        const node: Ast = { kind: "if", gap: 0, children: [] };
+        const node: Ast = {
+          kind: "if",
+          gap: 0,
+          children: [],
+          condition: tag.slice(4),
+        };
         body.push(node);
         stack.push({ kind: "if", body: node.children });
       } else fail(`不支持的控制标签：${tag}`);
@@ -167,12 +178,14 @@ function validateExpression(expression: string, scopes: string[]) {
     !globals.includes(name) &&
     !(
       scopes.includes("rows") &&
-      ["label", "title", "credits", "sources", "note"].includes(name)
+      ["label", "labels", "title", "credits", "sources", "note"].includes(name)
     ) &&
     !(scopes.includes("texts") && name === "text")
   )
     fail(`未知或不可用变量：${name}`);
-  let type = ["credits", "sources"].includes(name) ? "list" : "string";
+  let type = ["credits", "sources", "labels"].includes(name)
+    ? "list"
+    : "string";
   for (const filter of filters) {
     const m = /^(join|suffix|style|frame)\s*:\s*(.*)$/.exec(filter);
     if (!m) fail(`不支持的过滤器：${filter}`);
@@ -205,7 +218,8 @@ export function render(source: string, context: Context): string {
           stylize(node.title, node.options.style || "plain") +
           (node.options.right || "");
       else if (node.kind === "if") {
-        if (row?.title) result += nodes(node.children, row, text);
+        if (node.condition === "sources" ? row?.sources.length : row?.title)
+          result += nodes(node.children, row, text);
       } else if (node.kind === "rows")
         result += context.rows
           .map((r) => nodes(node.children, r, text))
@@ -221,6 +235,7 @@ export function render(source: string, context: Context): string {
           "work.date": context.work.date,
           "domain.name": context.domain.name,
           label: row?.label || "",
+          labels: (row?.labels ?? [row?.label || ""]).map(asCredit),
           title: row?.title || "",
           credits: row?.credits || [],
           sources: (row?.sources || []).map(asCredit),
@@ -271,11 +286,16 @@ export function contextFor(
   s: State,
   draft: Draft,
   language: Template["language"],
+  nodeJoiner = "・",
 ): Context {
   const domain = s.domains.find((d) => d.id === draft.domainId);
   const rows: Row[] = [],
     texts = [...draft.publicTexts];
+  const absorbed = new Set(
+    draft.bindings.flatMap((b) => b.mergedNodeIds ?? []),
+  );
   for (const b of draft.bindings) {
+    if (absorbed.has(b.nodeId)) continue;
     const node = domain?.nodes.find((n) => n.id === b.nodeId);
     if (!node) continue;
     if (node.mode === "text") {
@@ -313,7 +333,49 @@ export function contextFor(
       sources: m.sources,
       note: "",
     });
-    if (b.titleMode) rows.push(...selected.map(from));
+    if (b.mergedNodeIds?.length) {
+      const group = [b.nodeId, ...b.mergedNodeIds];
+      const combined = contextFor(
+        s,
+        {
+          ...draft,
+          bindings: group.map((id) => ({
+            ...draft.bindings.find((x) => x.nodeId === id)!,
+            mergedNodeIds: [],
+          })),
+          publicTexts: [],
+        },
+        language,
+        nodeJoiner,
+      ).rows;
+      if (combined.length) {
+        const labels = group.map((id) => {
+          const n = domain!.nodes.find((n) => n.id === id)!;
+          return language === "en"
+            ? n.en || n.label
+            : language === "ja"
+              ? n.ja || n.label
+              : n.label;
+        });
+        const names = new Set<string>();
+        rows.push({
+          label: labels.join(nodeJoiner),
+          labels,
+          title: [
+            ...new Set(combined.map((r) => r.title).filter(Boolean)),
+          ].join(" / "),
+          credits: combined
+            .flatMap((r) => r.credits)
+            .filter((c) => {
+              if (names.has(c.name)) return false;
+              names.add(c.name);
+              return true;
+            }),
+          sources: [...new Set(combined.flatMap((r) => r.sources))],
+          note: "",
+        });
+      }
+    } else if (b.titleMode) rows.push(...selected.map(from));
     else if (selected.length) {
       const parts = selected.map(from);
       rows.push({
@@ -335,5 +397,5 @@ export function contextFor(
 export function sourceFromFormat(f: Format): string {
   const q = JSON.stringify;
   const style = f.style === "plain" ? "" : ` | style:${q(f.style)}`;
-  return `{{header ${q(f.header)} left=${q(f.left)} right=${q(f.right)} style=${q(f.style)}}}\n${f.headerGap ? `{{blank ${f.headerGap}}}\n` : ""}{{#rows gap=${f.rowGap}}}\n${f.labelLeft}{{label${style}}}${f.labelRight}${f.delimiter}{{#if title}}{{title}}${f.titleSeparator}{{/if}}{{credits${f.suffix ? ` | suffix:${q(f.suffix)}` : ""} | join:${q(f.joiner)}}}\n${f.showSources ? '{{sources | join:"\\n"}}\n' : ""}{{/rows}}\n{{#texts}}\n{{text}}\n{{/texts}}`;
+  return `{{header ${q(f.header)} left=${q(f.left)} right=${q(f.right)} style=${q(f.style)}}}\n${f.headerGap ? `{{blank ${f.headerGap}}}\n` : ""}{{#rows gap=${f.rowGap}}}\n${f.labelLeft}{{labels | join:${q(f.nodeJoiner ?? "・")}${style}}}${f.labelRight}${f.delimiter}{{#if title}}{{title}}${f.titleSeparator}{{/if}}{{credits${f.suffix ? ` | suffix:${q(f.suffix)}` : ""} | join:${q(f.joiner)}}}\n${f.showSources ? '{{#if sources}}\n{{sources | join:"\\n"}}\n{{/if}}\n' : ""}{{/rows}}\n{{#texts}}\n{{text}}\n{{/texts}}`;
 }

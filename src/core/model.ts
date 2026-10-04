@@ -27,6 +27,7 @@ export const sourcePresetSchema = z
     name: z.string().min(1).max(100),
     categories: z.array(categorySchema).min(1).max(40),
     target: text,
+    showHonorific: z.boolean().optional(),
   })
   .strict();
 export const materialSchema = z
@@ -35,6 +36,7 @@ export const materialSchema = z
     name: text,
     sources: list,
     path: text,
+    pathKind: z.enum(["file", "directory"]).optional(),
     folderId: text,
     relativePath: text,
     note: text,
@@ -81,6 +83,7 @@ export const bindingSchema = z
     materialIds: z.array(id).max(1000),
     titleMode: z.boolean(),
     titleOverrides: z.record(text),
+    mergedNodeIds: z.array(id).max(100).optional(),
     text,
   })
   .strict();
@@ -99,6 +102,7 @@ export const formatSchema = z
     style: text,
     suffix: text,
     showSources: z.boolean(),
+    nodeJoiner: text.optional(),
   })
   .strict();
 export const templateSchema = z
@@ -149,6 +153,9 @@ export const folderSchema = z
     category: text,
     recursive: z.boolean(),
     extensions: list,
+    excludedExtensions: list.optional(),
+    categories: list.optional(),
+    hiddenPaths: list.optional(),
     sourcePresetId: text,
   })
   .strict();
@@ -251,7 +258,7 @@ export function parseState(value: unknown): State {
   }
   for (const p of s.sourcePresets) {
     if (!p.categories.some((c) => c.author))
-      throw new Error("来源分类预设必须包含作者分类");
+      throw new Error("来源预设必须包含作者分类");
     if (new Set(p.categories.map((c) => c.id)).size !== p.categories.length)
       throw new Error("来源分类ID重复");
   }
@@ -274,22 +281,23 @@ export function parseState(value: unknown): State {
   for (const p of s.workPresets) {
     const d = s.domains.find((d) => d.id === p.domainId);
     if (!d || !s.templates.some((t) => t.id === p.templateId))
-      throw new Error("作品预设的领域或输出模板不存在");
+      throw new Error("最终预设的领域或输出模板不存在");
+    validateMerges(p.bindings, d);
     if (
       p.nodePresetId &&
       !s.nodePresets.some(
         (n) => n.id === p.nodePresetId && n.domainId === p.domainId,
       )
     )
-      throw new Error("作品预设的节点预设不存在");
+      throw new Error("最终预设的节点预设不存在");
     if (new Set(p.bindings.map((b) => b.nodeId)).size !== p.bindings.length)
-      throw new Error("作品预设节点重复");
+      throw new Error("最终预设节点重复");
     for (const b of p.bindings)
       if (
         !d.nodes.some((n) => n.id === b.nodeId) ||
         b.materialIds.some((id) => !s.materials.some((m) => m.id === id))
       )
-        throw new Error("作品预设引用了不存在的节点或素材");
+        throw new Error("最终预设引用了不存在的节点或素材");
   }
   for (const w of s.works) {
     const d = s.domains.find((d) => d.id === w.domainId);
@@ -302,6 +310,7 @@ export function parseState(value: unknown): State {
       )
     )
       throw new Error("作品引用了不存在的领域、节点或素材");
+    validateMerges(w.bindings, d!);
   }
   for (const p of s.nodePresets) {
     const d = s.domains.find((x) => x.id === p.domainId);
@@ -311,6 +320,23 @@ export function parseState(value: unknown): State {
       throw new Error("节点预设包含重复节点");
   }
   return s;
+}
+export function validateMerges(bindings: Binding[], domain: Domain) {
+  const used = new Set<string>();
+  for (const b of bindings)
+    for (const id of b.mergedNodeIds ?? []) {
+      const target = bindings.find((x) => x.nodeId === id);
+      if (
+        id === b.nodeId ||
+        !target ||
+        used.has(id) ||
+        target.mergedNodeIds?.length ||
+        domain.nodes.find((n) => n.id === id)?.mode === "text" ||
+        domain.nodes.find((n) => n.id === b.nodeId)?.mode === "text"
+      )
+        throw new Error("合并节点无效或重复");
+      used.add(id);
+    }
 }
 export function usage(s: State, materialId: string) {
   return s.works
@@ -376,6 +402,7 @@ export function saveWork(
   if (!output.trim()) throw new Error("借物表没有可输出的内容");
   const domain = s.domains.find((d) => d.id === draft.domainId);
   if (!domain) throw new Error("请选择有效领域");
+  validateMerges(draft.bindings, domain);
   if (
     !draft.bindings.some((b) => b.materialIds.length || b.text.trim()) &&
     !draft.publicTexts.some((t) => t.trim())

@@ -1786,7 +1786,7 @@ dependencies = [
 
 [[package]]
 name = "kari-manager"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "rusqlite",
  "serde",
@@ -1796,6 +1796,7 @@ dependencies = [
  "tauri-plugin-clipboard-manager",
  "tauri-plugin-dialog",
  "tempfile",
+ "windows",
 ]
 
 [[package]]

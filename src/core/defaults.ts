@@ -39,6 +39,7 @@ export function defaultFormat(
     style: language === "en" ? style : "plain",
     suffix: language === "ja" ? "様" : "",
     showSources: false,
+    nodeJoiner: "・",
   };
 }
 export function defaults(): State {

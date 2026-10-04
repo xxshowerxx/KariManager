@@ -48,6 +48,19 @@ export async function exists(path: string): Promise<boolean> {
   if (!desktop) return false;
   return invoke("path_exists", { path });
 }
+export async function pathKind(path: string): Promise<"file" | "directory" | null> {
+  return desktop ? invoke("path_kind", { path }) : null;
+}
+export async function noteFiles(target: string): Promise<Entry[]> {
+  if (!desktop) throw new Error("请使用桌面版查看本地说明文件");
+  return invoke("note_files", { target });
+}
+export async function openDirectory(target: string) {
+  return invoke("open_directory", { target });
+}
+export async function recycleEntry(root: string, target: string) {
+  return invoke("recycle_entry", { root, target });
+}
 export async function listDirectory(
   root: string,
   recursive: boolean,

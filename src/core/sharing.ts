@@ -170,6 +170,10 @@ export function mergeBundle(current: State, bundle: Bundle): State {
     p.name += "（导入）";
     for (const b of p.bindings) {
       b.nodeId = nodes.get(`${oldDomain}:${b.nodeId}`) || b.nodeId;
+      if (b.mergedNodeIds)
+        b.mergedNodeIds = b.mergedNodeIds.map(
+          (id) => nodes.get(`${oldDomain}:${id}`) || id,
+        );
       b.materialIds = b.materialIds.map((id) => remap("materials", id));
       b.titleOverrides = Object.fromEntries(
         Object.entries(b.titleOverrides).map(([id, v]) => [

@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod db;
+mod files;
 use db::{Database, Snapshot};
 use serde::Serialize;
 use std::{
@@ -164,6 +165,58 @@ fn path_exists(path: String) -> bool {
     Path::new(&path).exists()
 }
 #[tauri::command]
+fn path_kind(path: String) -> Option<&'static str> {
+    let path = Path::new(&path);
+    if path.is_dir() {
+        Some("directory")
+    } else if path.is_file() {
+        Some("file")
+    } else {
+        None
+    }
+}
+#[tauri::command]
+async fn recycle_entry(root: String, target: String) -> Result<(), String> {
+    let path = files::checked_child(&root, &target)?;
+    tauri::async_runtime::spawn_blocking(move || files::recycle(&path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+fn note_files(target: String) -> Result<Vec<FileEntry>, String> {
+    let path = PathBuf::from(target);
+    let directory = if path.is_dir() {
+        path
+    } else {
+        path.parent().ok_or("本地位置无效")?.to_path_buf()
+    };
+    let mut entries = list_directory(
+        directory.to_string_lossy().to_string(),
+        true,
+        vec!["txt".into(), "md".into()],
+    )?
+    .entries;
+    entries.retain(|e| !e.directory);
+    entries.sort_by_key(|e| {
+        (
+            !e.name.to_lowercase().contains("readme"),
+            e.relative_path.matches(['\\', '/']).count(),
+            e.name.clone(),
+        )
+    });
+    Ok(entries)
+}
+#[tauri::command]
+fn open_directory(target: String) -> Result<(), String> {
+    let path = PathBuf::from(target);
+    let directory = if path.is_dir() {
+        path
+    } else {
+        path.parent().ok_or("本地位置无效")?.to_path_buf()
+    };
+    open_target(directory.to_string_lossy().to_string(), false)
+}
+#[tauri::command]
 fn read_text(path: String) -> Result<String, String> {
     let metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
     if metadata.len() > 20 * 1024 * 1024 {
@@ -246,6 +299,10 @@ fn main() {
             move_database,
             list_directory,
             path_exists,
+            path_kind,
+            recycle_entry,
+            note_files,
+            open_directory,
             read_text,
             write_text,
             open_target
