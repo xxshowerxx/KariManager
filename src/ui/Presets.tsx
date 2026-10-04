@@ -533,15 +533,14 @@ export function TemplateEditor({
               value={t.language}
               onChange={(e) => {
                 const language = e.target.value as Template["language"];
-                if (t.mode === "visual") {
-                  const format = defaultFormat(language, t.format.style);
-                  set({
-                    ...t,
-                    language,
-                    format,
-                    source: sourceFromFormat(format),
-                  });
-                } else set({ ...t, language });
+                const format = defaultFormat(language, t.format.style);
+                set({
+                  ...t,
+                  language,
+                  format,
+                  source:
+                    t.mode === "visual" ? sourceFromFormat(format) : t.source,
+                });
               }}
             >
               <option value="zh">中文</option>
@@ -577,26 +576,30 @@ export function TemplateEditor({
           <div>
             {t.mode === "visual" ? (
               <div className="form-grid">
-                {fields.map(([key, label]) => (
-                  <Field key={key} label={label}>
-                    <input
-                      value={String(t.format[key])}
-                      onChange={(e) => change(key, e.target.value)}
-                    />
+                {fields
+                  .filter(([key]) => key !== "suffix" || t.language === "ja")
+                  .map(([key, label]) => (
+                    <Field key={key} label={label}>
+                      <input
+                        value={String(t.format[key])}
+                        onChange={(e) => change(key, e.target.value)}
+                      />
+                    </Field>
+                  ))}
+                {t.language === "en" && (
+                  <Field label="字符样式">
+                    <select
+                      value={t.format.style}
+                      onChange={(e) => change("style", e.target.value)}
+                    >
+                      {styles.map(([id, name]) => (
+                        <option key={id} value={id}>
+                          {name} · {stylize("Model", id)}
+                        </option>
+                      ))}
+                    </select>
                   </Field>
-                ))}
-                <Field label="字符样式">
-                  <select
-                    value={t.format.style}
-                    onChange={(e) => change("style", e.target.value)}
-                  >
-                    {styles.map(([id, name]) => (
-                      <option key={id} value={id}>
-                        {name} · {stylize("Model", id)}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
+                )}
                 {(["headerGap", "rowGap"] as const).map((key) => (
                   <Field
                     key={key}
@@ -648,7 +651,7 @@ export function TemplateEditor({
             )}
           </div>
           <div className="template-sample">
-            <span className="eyebrow">实时预览 · 虚构样例</span>
+            <span className="eyebrow">实时预览</span>
             <pre>{error || output}</pre>
           </div>
         </div>

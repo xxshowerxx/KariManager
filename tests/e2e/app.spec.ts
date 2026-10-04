@@ -1,4 +1,55 @@
 import { test, expect } from "@playwright/test";
+test("模板语言切换、默认敬称与保存后重载", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "预设", exact: true }).click();
+  await page.getByRole("button", { name: "输出模板", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "中文", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "编辑格式" }).first().click();
+  const dialog = page.getByRole("dialog");
+  const language = dialog.getByLabel("标签语言", { exact: true });
+  const suffix = dialog.getByLabel("日语敬称后缀", { exact: true });
+  const style = dialog.getByLabel("字符样式", { exact: true });
+  await expect(suffix).toHaveCount(0);
+  await expect(style).toHaveCount(0);
+  await dialog.getByRole("button", { name: "模板语法", exact: true }).click();
+  const source = dialog.getByLabel("模板语法", { exact: true });
+  const handwritten = await source.inputValue();
+  await language.selectOption("ja");
+  await expect(source).toHaveValue(handwritten);
+  page.once("dialog", (d) => d.accept());
+  await dialog.getByRole("button", { name: "可视化设置", exact: true }).click();
+  await expect(suffix).toHaveValue("様");
+  await language.selectOption("en");
+  await expect(suffix).toHaveCount(0);
+  await style.selectOption("bold");
+  await expect(dialog.locator(".template-sample")).toContainText("𝐌𝐨𝐝𝐞𝐥");
+  await language.selectOption("ja");
+  await expect(style).toHaveCount(0);
+  await expect(suffix).toHaveValue("様");
+  await expect(dialog.locator(".template-sample")).toContainText("作者甲様");
+  await dialog.getByRole("button", { name: "保存模板", exact: true }).click();
+  await page.reload();
+  await page.getByRole("button", { name: "预设", exact: true }).click();
+  await page.getByRole("button", { name: "输出模板", exact: true }).click();
+  await page.getByRole("button", { name: "编辑格式" }).first().click();
+  await expect(language).toHaveValue("ja");
+  await expect(suffix).toHaveValue("様");
+  await language.selectOption("zh");
+  await expect(suffix).toHaveCount(0);
+  await expect(style).toHaveCount(0);
+  await expect(dialog.locator(".template-sample")).not.toContainText("様");
+  await dialog.getByRole("button", { name: "保存模板", exact: true }).click();
+  const saved = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("kari-manager-v1")!).payload.templates.find(
+      (t: { id: string }) => t.id === "template-zh",
+    ),
+  );
+  expect(saved.format.style).toBe("plain");
+  expect(saved.format.suffix).toBe("");
+});
+
 test("素材录入、输出、使用历史、预设与持久化", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: "资料库" })).toBeVisible();

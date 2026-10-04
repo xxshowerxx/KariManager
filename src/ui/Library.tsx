@@ -218,9 +218,7 @@ export function MaterialEditor({
             ))}
           </select>
         </div>
-        <p className="muted compact">
-          预设只提供分类。作者必填，其余可选；输出按以下顺序连接
-        </p>
+        <p className="muted compact">作者必填，其余可选；输出按以下顺序连接</p>
         <datalist id="party-names">
           {pool.map((p) => (
             <option key={p.id} value={p.name} />
@@ -319,7 +317,6 @@ export function MaterialEditor({
           </Field>
         </div>
         <footer className="modal-footer">
-          <span className="muted">备注和本地路径默认不进入借物表</span>
           <button type="button" onClick={onClose}>
             取消
           </button>

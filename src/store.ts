@@ -18,7 +18,11 @@ class Store {
     const { payload, revision } = await platform.load();
     this.state = payload ? parseState(payload) : defaults();
     this.revision = revision;
-    if (!payload) this.revision = await platform.persist(this.state, revision);
+    const chinese = this.state.templates.find((t) => t.id === "template-zh");
+    const renameChinese = chinese?.name === "中文清晰";
+    if (chinese && renameChinese) chinese.name = "中文";
+    if (!payload || renameChinese)
+      this.revision = await platform.persist(this.state, revision);
     this.emit();
   }
   update(action: (draft: State) => void): Promise<void> {

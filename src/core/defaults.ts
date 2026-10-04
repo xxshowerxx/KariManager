@@ -36,7 +36,7 @@ export function defaultFormat(
     titleSeparator: " — ",
     headerGap: 0,
     rowGap: 0,
-    style,
+    style: language === "en" ? style : "plain",
     suffix: language === "ja" ? "様" : "",
     showSources: false,
   };
@@ -99,7 +99,7 @@ export function defaults(): State {
     ],
   ];
   const templateDefs: [string, string, Template["language"], string][] = [
-    ["zh", "中文清晰", "zh", "plain"],
+    ["zh", "中文", "zh", "plain"],
     ["en", "普通英文", "en", "plain"],
     ["fancy", "花体英文", "en", "bold-italic"],
     ["ja", "日文", "ja", "plain"],
