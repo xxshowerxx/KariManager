@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "KariManager · 借物有据",
+        "title": "KariManager",
         "width": 1280,
         "height": 860,
         "minWidth": 960,

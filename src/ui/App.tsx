@@ -118,7 +118,6 @@ export function App() {
           <div className="brand">
             <div>
               <strong>KariManager</strong>
-              <small>借物管理 · 轻量版</small>
             </div>
           </div>
           <nav>
@@ -139,7 +138,7 @@ export function App() {
           </nav>
           <div className="sidebar-foot">
             <span className="status-dot" />
-            本地保存<small>轻量版 · v0.1.0</small>
+            本地保存<small>v0.1.0</small>
           </div>
         </aside>
         <main className="main-content">
@@ -197,8 +196,8 @@ export function App() {
         >
           <p>
             {"kind" in imported
-              ? "将作为新预设加入；同名条目不会覆盖。"
-              : "将替换全部当前资料。继续后先导出一份当前数据备份，取消备份则取消恢复。"}
+              ? "将作为新预设加入；同名条目不会覆盖"
+              : "将替换全部当前资料。继续后先导出一份当前数据备份，取消备份则取消恢复"}
           </p>
           <div className="import-summary">
             {Object.entries("kind" in imported ? imported.data : imported)

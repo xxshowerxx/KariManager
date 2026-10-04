@@ -28,7 +28,7 @@ export function History({
     <>
       <PageHeader
         title="作品记录"
-        description="作品记录随输出自动建立，保留当时的完整署名。"
+        description="作品记录随输出自动建立，保留当时的完整署名"
       />
       <div className="toolbar">
         <input
@@ -88,7 +88,7 @@ export function History({
       ) : (
         <Empty
           title={filter === "active" ? "暂无作品记录" : "暂无记录"}
-          description="选入素材并输出借物表，就会保存日期、领域与使用记录。"
+          description="选入素材并输出借物表，就会保存日期、领域与使用记录"
         />
       )}
       {selected && (
@@ -191,7 +191,7 @@ export function History({
                   onClick={() => {
                     if (
                       !confirm(
-                        "删除作品记录？使用次数会扣除，可以在回收记录中恢复。",
+                        "删除作品记录？使用次数会扣除，可以在回收记录中恢复",
                       )
                     )
                       return;

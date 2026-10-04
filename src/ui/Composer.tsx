@@ -84,7 +84,7 @@ export function MaterialPicker({
           </label>
         ))}
         {!visible.length && (
-          <p className="muted">没有可选素材，请先到资料库添加。</p>
+          <p className="muted">没有可选素材，请先到资料库添加</p>
         )}
       </div>
       <footer className="modal-footer">
@@ -177,7 +177,7 @@ export function Composer({
     <>
       <PageHeader
         title="制作借物表"
-        description="选择素材与输出格式。输出后自动保存作品记录。"
+        description="选择素材与输出格式"
         actions={
           <>
             <button
@@ -498,7 +498,7 @@ export function Composer({
             {error ? (
               <p className="error">{error}</p>
             ) : (
-              <pre>{output || "选择素材后，将在这里显示借物表。"}</pre>
+              <pre>{output || "选择素材后，将在这里显示借物表"}</pre>
             )}
           </div>
           <div className="preview-meta">
@@ -520,9 +520,6 @@ export function Composer({
           >
             输出为 TXT
           </button>
-          <p className="muted fine-print">
-            同一作品反复输出只更新记录。新创作请点击“新作品”。
-          </p>
         </aside>
       </div>
       {picker !== null && (
@@ -571,7 +568,7 @@ export function Composer({
               />
             </Field>
             <p className="muted">
-              保存当前节点、素材选择、固定说明和输出模板，不保存日期与使用次数。
+              保存当前节点、素材选择、固定说明和输出模板，不保存日期与使用次数
             </p>
             <footer className="modal-footer">
               <button type="button" onClick={() => setPresetName(null)}>

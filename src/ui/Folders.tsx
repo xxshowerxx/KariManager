@@ -33,8 +33,7 @@ export function Folders() {
         f.extensions,
       );
       setEntries(result.entries);
-      if (result.truncated)
-        notice("目录超过两万条，已截断。建议缩小目录范围。");
+      if (result.truncated) notice("目录超过两万条，已截断。建议缩小目录范围");
     });
     setLoading(false);
   }
@@ -42,7 +41,7 @@ export function Folders() {
     <>
       <PageHeader
         title="素材目录"
-        description="指定类别与目录，需要时浏览文件，再补充作者录入资料库。"
+        description="指定类别与目录，需要时浏览文件，再补充作者录入资料库"
         actions={
           <button
             className="primary"
@@ -106,7 +105,7 @@ export function Folders() {
           {!s.folders.length && (
             <Empty
               title="添加一个素材目录"
-              description="例如：模型、动作、场景各放一个文件夹。"
+              description="例如：模型、动作、场景各放一个文件夹"
             />
           )}
         </div>
@@ -179,7 +178,7 @@ export function Folders() {
           ) : (
             <Empty
               title="选择目录浏览"
-              description="只在点击浏览时读取目录，不会自动解析作者。"
+              description="只在点击浏览时读取目录，不会自动解析作者"
             />
           )}
         </div>
@@ -215,7 +214,7 @@ export function Folders() {
             </Field>
             <Field
               label="本地目录"
-              hint="重定位根目录后，关联素材按相对路径查找。"
+              hint="重定位根目录后，关联素材按相对路径查找"
             >
               <div className="input-action">
                 <input

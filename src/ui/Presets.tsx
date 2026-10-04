@@ -64,7 +64,7 @@ function SourceEditor({
           </Field>
         </div>
         <p className="muted">
-          只定义空分类，不保存具体名字。作者分类至少保留一个。
+          只定义空分类，不保存具体名字。作者分类至少保留一个
         </p>
         {p.categories.map((c, i) => (
           <div className="editable-row" key={c.id}>
@@ -557,7 +557,7 @@ export function TemplateEditor({
             onClick={() => {
               if (
                 t.mode === "code" &&
-                !confirm("按可视化设置重新生成模板？当前手写语法将被替换。")
+                !confirm("按可视化设置重新生成模板？当前手写语法将被替换")
               )
                 return;
               set({ ...t, mode: "visual", source: sourceFromFormat(t.format) });
@@ -642,7 +642,7 @@ export function TemplateEditor({
                   <br />
                   {"{{#if title}}{{title}} — {{/if}}"} 可选标题
                   <br />
-                  {"{{/rows}}"} 结束。可用 suffix、style、frame 过滤器。
+                  {"{{/rows}}"} 结束。可用 suffix、style、frame 过滤器
                 </p>
               </>
             )}
@@ -694,7 +694,7 @@ export function Presets({
       "预设已导出",
     );
   const remove = (kind: ShareKind, id: string) => {
-    if (!confirm("删除这个预设？已经保存的作品记录会保留。")) return;
+    if (!confirm("删除这个预设？已经保存的作品记录会保留")) return;
     void task(
       () =>
         store.update((d) => {
@@ -781,7 +781,7 @@ export function Presets({
     <>
       <PageHeader
         title="预设管理"
-        description="管理来源分类、领域、节点、作品组合及输出模板。"
+        description="管理来源分类、领域、节点、作品组合及输出模板"
         actions={
           <>
             <button onClick={onImport}>导入 JSON</button>
@@ -963,7 +963,7 @@ export function Presets({
       {tab === "work" && !s.workPresets.length && (
         <Empty
           title="暂无作品预设"
-          description="在制作借物表页面选择节点和素材，然后点击“保存为作品预设”。"
+          description="在制作借物表页面选择节点和素材，然后点击“保存为作品预设”"
         />
       )}
       {source && (

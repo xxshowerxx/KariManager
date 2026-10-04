@@ -219,7 +219,7 @@ export function MaterialEditor({
           </select>
         </div>
         <p className="muted compact">
-          预设只提供分类。作者必填，其余可选；输出按以下顺序连接。
+          预设只提供分类。作者必填，其余可选；输出按以下顺序连接
         </p>
         <datalist id="party-names">
           {pool.map((p) => (
@@ -451,7 +451,7 @@ export function Library({ onOpenWork }: { onOpenWork: (w: Work) => void }) {
     <>
       <PageHeader
         title="资料库"
-        description="管理素材、署名、来源和使用记录。"
+        description="管理素材、署名、来源和使用记录"
         actions={
           <button
             className="primary"
@@ -596,7 +596,7 @@ export function Library({ onOpenWork }: { onOpenWork: (w: Work) => void }) {
               title={
                 s.materials.length ? "没有符合条件的素材" : "从第一份素材开始"
               }
-              description="记录作者，再填写名称、来源链接或本地路径。其他信息可以慢慢补全。"
+              description="记录作者，再填写名称、来源链接或本地路径。其他信息可以慢慢补全"
             >
               <button
                 className="primary"
@@ -654,7 +654,7 @@ export function Library({ onOpenWork }: { onOpenWork: (w: Work) => void }) {
           {!parties.length && (
             <Empty
               title="暂无常用来源"
-              description="作者、游戏、软件、网站都可以存下来，在素材中直接选择。"
+              description="作者、游戏、软件、网站都可以存下来，在素材中直接选择"
             />
           )}
         </div>
@@ -742,13 +742,13 @@ export function Library({ onOpenWork }: { onOpenWork: (w: Work) => void }) {
             </button>
           ))}
           {!usage(s, material.id).length && (
-            <p className="muted">尚未用于作品，收藏和预览不会增加次数。</p>
+            <p className="muted">尚未用于作品，收藏和预览不会增加次数</p>
           )}
           <footer className="modal-footer">
             <button
               className="danger text"
               onClick={() => {
-                if (!confirm("删除该素材的资料记录？磁盘文件会保留。")) return;
+                if (!confirm("删除该素材的资料记录？磁盘文件会保留")) return;
                 void task(
                   () =>
                     store.update((d) => {
