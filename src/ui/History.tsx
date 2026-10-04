@@ -265,9 +265,7 @@ export function History({
                 onChange={(e) => setEdit({ ...edit, note: e.target.value })}
               />
             </Field>
-            <p className="muted">
-              领域：{edit.domainName} · 原借物表保持当时快照
-            </p>
+            <p className="muted">领域：{edit.domainName}</p>
             <footer className="modal-footer">
               <button type="button" onClick={() => setEdit(null)}>
                 取消

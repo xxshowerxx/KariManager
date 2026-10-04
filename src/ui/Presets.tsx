@@ -59,13 +59,9 @@ function SourceEditor({
             <input
               value={p.target}
               onChange={(e) => set({ ...p, target: e.target.value })}
-              placeholder="只是推荐，其他素材也可使用"
             />
           </Field>
         </div>
-        <p className="muted">
-          只定义空分类，不保存具体名字。作者分类至少保留一个
-        </p>
         {p.categories.map((c, i) => (
           <div className="editable-row" key={c.id}>
             <input
@@ -146,9 +142,6 @@ function SourceEditor({
           ＋ 添加分类
         </button>
         <footer className="modal-footer">
-          <span className="muted">
-            各分类均支持多项；变化不会重排已保存素材
-          </span>
           <button type="button" onClick={onClose}>
             取消
           </button>
@@ -656,9 +649,7 @@ export function TemplateEditor({
           </div>
         </div>
         <footer className="modal-footer">
-          <span className={error ? "error" : "muted"}>
-            {error ? "请先修正语法" : "原标题和作者数据始终保留"}
-          </span>
+          {error && <span className="error">请先修正语法</span>}
           <button type="button" onClick={onClose}>
             取消
           </button>
@@ -964,10 +955,7 @@ export function Presets({
           ))}
       </div>
       {tab === "work" && !s.workPresets.length && (
-        <Empty
-          title="暂无作品预设"
-          description="在制作借物表页面选择节点和素材，然后点击“保存为作品预设”"
-        />
+        <Empty title="暂无作品预设" />
       )}
       {source && (
         <SourceEditor value={source} onClose={() => setSource(null)} />

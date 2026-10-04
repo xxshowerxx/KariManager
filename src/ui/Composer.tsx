@@ -479,7 +479,7 @@ export function Composer({
               </section>
             );
           })}
-          <Field label="固定说明" hint="公开输出文字，不计素材使用次数">
+          <Field label="固定说明">
             <textarea
               value={draft.publicTexts.join("\n")}
               onChange={(e) =>
@@ -569,9 +569,6 @@ export function Composer({
                 placeholder="例如：常用舞台与效果组合"
               />
             </Field>
-            <p className="muted">
-              保存当前节点、素材选择、固定说明和输出模板，不保存日期与使用次数
-            </p>
             <footer className="modal-footer">
               <button type="button" onClick={() => setPresetName(null)}>
                 取消

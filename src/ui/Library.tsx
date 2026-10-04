@@ -627,12 +627,7 @@ export function Library({ onOpenWork }: { onOpenWork: (w: Work) => void }) {
               </div>
             </div>
           ))}
-          {!parties.length && (
-            <Empty
-              title="暂无常用来源"
-              description="作者、游戏、软件、网站都可以存下来，在素材中直接选择"
-            />
-          )}
+          {!parties.length && <Empty title="暂无常用来源" />}
         </div>
       )}
       {editor && (
@@ -717,9 +712,6 @@ export function Library({ onOpenWork }: { onOpenWork: (w: Work) => void }) {
               <span>查看 →</span>
             </button>
           ))}
-          {!usage(s, material.id).length && (
-            <p className="muted">尚未用于作品，收藏和预览不会增加次数</p>
-          )}
           <footer className="modal-footer">
             <button
               className="danger text"
