@@ -21,6 +21,7 @@ import * as platform from "../platform";
 import { MaterialEditor } from "./Library";
 import { LocalFileActions } from "./LocalFileActions";
 import { MaterialCategoryField } from "./MaterialCategoryField";
+import { ExtensionField } from "./ExtensionField";
 import { Empty, Field, Modal, PageHeader, useNotice, useTask } from "./common";
 
 export function Folders() {
@@ -112,8 +113,11 @@ export function Folders() {
               </button>
               <LocalFileActions path={e.path} compact />
               <button
-                disabled={!!conflict}
                 onClick={() => {
+                  if (conflict) {
+                    setMaterial(clone(conflict));
+                    return;
+                  }
                   if (!folder) return;
                   const preset =
                     s.sourcePresets.find(
@@ -131,7 +135,7 @@ export function Folders() {
                   });
                 }}
               >
-                录入
+                {conflict ? "编辑" : "录入"}
               </button>
               <button
                 onClick={() =>
@@ -391,31 +395,25 @@ export function Folders() {
                 ))}
               </select>
             </Field>
-            <Field
+            <ExtensionField
               label="扩展名筛选"
-              hint="用逗号分隔，例如 pmx, pmd；留空显示全部"
-            >
-              <input
-                value={edit.extensions.join(", ")}
-                onChange={(e) =>
-                  setEdit({
-                    ...edit,
-                    extensions: e.target.value.split(/[,，]/),
-                  })
-                }
-              />
-            </Field>
-            <Field label="排除扩展名">
-              <input
-                value={(edit.excludedExtensions ?? ["txt", "md"]).join(", ")}
-                onChange={(e) =>
-                  setEdit({
-                    ...edit,
-                    excludedExtensions: e.target.value.split(/[,，]/),
-                  })
-                }
-              />
-            </Field>
+              hint="输入后点添加或按 Enter；可用逗号批量添加，例如 pmx, pmd；未添加时显示全部"
+              values={extensionList(edit.extensions.join(","))}
+              onChange={(extensions) =>
+                setEdit((current) => current && { ...current, extensions })
+              }
+            />
+            <ExtensionField
+              label="排除扩展名"
+              values={extensionList(
+                (edit.excludedExtensions ?? ["txt", "md"]).join(","),
+              )}
+              onChange={(excludedExtensions) =>
+                setEdit(
+                  (current) => current && { ...current, excludedExtensions },
+                )
+              }
+            />
             <label className="check">
               <input
                 type="checkbox"

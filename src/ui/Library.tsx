@@ -49,6 +49,16 @@ export function creditNames(m: Material, s: State) {
     .filter(Boolean)
     .join(" / ");
 }
+function removeMaterial(d: State, id: string) {
+  if (d.works.some((w) => w.bindings.some((b) => b.materialIds.includes(id))))
+    throw new Error("素材存在作品历史，为保留追溯记录暂不能删除");
+  d.materials = d.materials.filter((m) => m.id !== id);
+  d.workPresets.forEach((p) =>
+    p.bindings.forEach((b) => {
+      b.materialIds = b.materialIds.filter((x) => x !== id);
+    }),
+  );
+}
 export function MaterialEditor({
   initial,
   onClose,
@@ -389,6 +399,22 @@ export function MaterialEditor({
           </Field>
         </div>
         <footer className="modal-footer">
+          {base.materials.some((x) => x.id === m.id) && (
+            <button
+              type="button"
+              className="text danger"
+              style={{ marginRight: "auto" }}
+              onClick={() => {
+                if (!confirm("移除该素材的资料记录？磁盘文件会保留")) return;
+                void task(async () => {
+                  await store.update((d) => removeMaterial(d, m.id));
+                  onClose();
+                }, "已移除素材记录");
+              }}
+            >
+              移除
+            </button>
+          )}
           <button type="button" onClick={onClose}>
             取消
           </button>
@@ -822,27 +848,7 @@ export function Library({ onOpenWork }: { onOpenWork: (w: Work) => void }) {
                 void task(
                   () =>
                     store.update((d) => {
-                      if (
-                        d.works.some((w) =>
-                          w.bindings.some((b) =>
-                            b.materialIds.includes(material.id),
-                          ),
-                        )
-                      )
-                        throw new Error(
-                          "素材存在作品历史，为保留追溯记录暂不能删除",
-                        );
-                      d.materials = d.materials.filter(
-                        (m) => m.id !== material.id,
-                      );
-                      d.workPresets.forEach((p) =>
-                        p.bindings.forEach(
-                          (b) =>
-                            (b.materialIds = b.materialIds.filter(
-                              (id) => id !== material.id,
-                            )),
-                        ),
-                      );
+                      removeMaterial(d, material.id);
                       setDetail(null);
                     }),
                   "已删除素材记录",
