@@ -103,6 +103,8 @@ export const formatSchema = z
     suffix: text,
     showSources: z.boolean(),
     nodeJoiner: text.optional(),
+    labelNewline: z.boolean().optional(),
+    nodeGap: z.number().int().min(0).max(10).optional(),
   })
   .strict();
 export const templateSchema = z
@@ -124,6 +126,8 @@ export const workPresetSchema = z
     bindings: z.array(bindingSchema).max(100),
     templateId: id,
     publicTexts: list,
+    materialSnapshots: z.array(materialSchema).max(1000).optional(),
+    partySnapshots: z.array(partySchema).max(40_000).optional(),
   })
   .strict();
 export const workSchema = z
@@ -139,6 +143,8 @@ export const workSchema = z
     templateId: id,
     publicTexts: list,
     output: text,
+    materialSnapshots: z.array(materialSchema).max(1000).optional(),
+    partySnapshots: z.array(partySchema).max(40_000).optional(),
     note: text.default(""),
     publishUrl: text.default(""),
     archived: z.boolean(),
@@ -196,6 +202,58 @@ export interface Draft {
   templateId: string;
   bindings: Binding[];
   publicTexts: string[];
+  materialSnapshots?: Material[];
+  partySnapshots?: Party[];
+}
+export interface MaterialSnapshots {
+  materialSnapshots?: Material[];
+  partySnapshots?: Party[];
+}
+export function withSnapshots(s: State, snapshots: MaterialSnapshots): State {
+  return {
+    ...s,
+    materials: [
+      ...s.materials,
+      ...(snapshots.materialSnapshots ?? []).filter(
+        (m) => !s.materials.some((x) => x.id === m.id),
+      ),
+    ],
+    parties: [
+      ...s.parties,
+      ...(snapshots.partySnapshots ?? []).filter(
+        (p) => !s.parties.some((x) => x.id === p.id),
+      ),
+    ],
+  };
+}
+export function snapshotsFor(s: State, bindings: Binding[]): MaterialSnapshots {
+  const ids = new Set(bindings.flatMap((b) => b.materialIds));
+  const materials = s.materials
+    .filter((m) => ids.has(m.id))
+    .map((m) => ({
+      ...clone(m),
+      path: materialPath(m, s),
+      folderId: "",
+      relativePath: "",
+    }));
+  const partyIds = new Set(
+    materials.flatMap((m) => m.groups.flatMap((g) => g.partyIds)),
+  );
+  return {
+    materialSnapshots: materials,
+    partySnapshots: clone(s.parties.filter((p) => partyIds.has(p.id))),
+  };
+}
+function validateSnapshots(s: State, record: MaterialSnapshots) {
+  for (const list of [
+    record.materialSnapshots ?? [],
+    record.partySnapshots ?? [],
+  ])
+    if (new Set(list.map((x) => x.id)).size !== list.length)
+      throw new Error("素材快照ID重复");
+  const view = withSnapshots(s, record);
+  for (const m of record.materialSnapshots ?? []) validateMaterial(m, view);
+  return view;
 }
 export const uid = () => crypto.randomUUID();
 export const clone = <T>(value: T): T => structuredClone(value);
@@ -279,6 +337,7 @@ export function parseState(value: unknown): State {
       throw new Error("素材来源分类ID重复");
   }
   for (const p of s.workPresets) {
+    const view = validateSnapshots(s, p);
     const d = s.domains.find((d) => d.id === p.domainId);
     if (!d || !s.templates.some((t) => t.id === p.templateId))
       throw new Error("最终预设的领域或输出模板不存在");
@@ -295,18 +354,19 @@ export function parseState(value: unknown): State {
     for (const b of p.bindings)
       if (
         !d.nodes.some((n) => n.id === b.nodeId) ||
-        b.materialIds.some((id) => !s.materials.some((m) => m.id === id))
+        b.materialIds.some((id) => !view.materials.some((m) => m.id === id))
       )
         throw new Error("最终预设引用了不存在的节点或素材");
   }
   for (const w of s.works) {
+    const view = validateSnapshots(s, w);
     const d = s.domains.find((d) => d.id === w.domainId);
     if (
       !d ||
       w.bindings.some(
         (b) =>
           !d.nodes.some((n) => n.id === b.nodeId) ||
-          b.materialIds.some((id) => !s.materials.some((m) => m.id === id)),
+          b.materialIds.some((id) => !view.materials.some((m) => m.id === id)),
       )
     )
       throw new Error("作品引用了不存在的领域、节点或素材");
@@ -399,6 +459,7 @@ export function saveWork(
   output: string,
   now = new Date().toISOString(),
 ): Work {
+  const view = withSnapshots(s, draft);
   if (!output.trim()) throw new Error("借物表没有可输出的内容");
   const domain = s.domains.find((d) => d.id === draft.domainId);
   if (!domain) throw new Error("请选择有效领域");
@@ -412,9 +473,9 @@ export function saveWork(
     if (!domain.nodes.some((n) => n.id === b.nodeId))
       throw new Error("作品包含失效节点，请重新选择预设");
     for (const id of b.materialIds) {
-      const m = s.materials.find((x) => x.id === id);
+      const m = view.materials.find((x) => x.id === id);
       if (!m) throw new Error("作品引用的素材已删除");
-      validateMaterial(m, s);
+      validateMaterial(m, view);
     }
   }
   const previous = s.works.find((w) => w.id === draft.workId);
@@ -432,6 +493,7 @@ export function saveWork(
     bindings: clone(draft.bindings),
     templateId: draft.templateId,
     publicTexts: clone(draft.publicTexts),
+    ...snapshotsFor(view, draft.bindings),
     output,
     note: previous?.note || "",
     publishUrl: previous?.publishUrl || "",

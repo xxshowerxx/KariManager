@@ -1,4 +1,147 @@
 import { test, expect } from "@playwright/test";
+test("选择素材时创建临时与永久来源，记录和最终预设在重启后保留临时信息", async ({
+  page,
+}) => {
+  await page.goto("/");
+  expect(
+    await page
+      .locator("nav button")
+      .evaluateAll((buttons) =>
+        buttons.map((b) => b.getAttribute("aria-label")),
+      ),
+  ).toEqual([
+    "制作借物表",
+    "预设",
+    "资料库",
+    "素材目录",
+    "作品记录",
+    "数据与设置",
+  ]);
+  await page.getByRole("button", { name: "制作借物表", exact: true }).click();
+  for (const [node, name, author, mode] of [
+    ["音乐", "临时歌曲", "临时作者", "temporary"],
+    ["模型", "永久模型", "永久作者", "permanent"],
+  ]) {
+    await page
+      .getByRole("region", { name: `${node}节点`, exact: true })
+      .getByRole("button", { name: "＋ 选择素材", exact: true })
+      .click();
+    const picker = page.getByRole("dialog", { name: "选择素材", exact: true });
+    await picker
+      .getByRole("button", { name: "＋ 创建来源", exact: true })
+      .click();
+    const editor = page.getByRole("dialog", { name: "添加素材", exact: true });
+    await editor.getByLabel("保存方式", { exact: true }).selectOption(mode);
+    await editor.getByLabel("素材名称", { exact: true }).fill(name);
+    await editor
+      .getByLabel("来源链接", { exact: true })
+      .fill(`https://example.com/${mode}`);
+    await editor.getByLabel("作者", { exact: true }).fill(author);
+    await editor.getByLabel("作者", { exact: true }).press("Enter");
+    await editor.getByLabel("备注", { exact: true }).fill(`${name}备注`);
+    await editor.getByRole("button", { name: "保存素材", exact: true }).click();
+    await expect(
+      picker
+        .locator(".picker-row")
+        .filter({ hasText: name })
+        .getByRole("checkbox"),
+    ).toBeChecked();
+    await picker.getByRole("button", { name: "选好了", exact: true }).click();
+  }
+  await page.getByLabel("作品标题", { exact: true }).fill("会话验证");
+  await page.getByRole("button", { name: "输出并复制", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("借物表已输出");
+  await page
+    .getByRole("button", { name: "保存为最终预设", exact: true })
+    .click();
+  await page.getByLabel("预设名称", { exact: true }).fill("会话预设");
+  await page.getByRole("button", { name: "保存预设", exact: true }).click();
+  const saved = await page.evaluate(
+    () => JSON.parse(localStorage.getItem("kari-manager-v1")!).payload,
+  );
+  expect(saved.materials.map((m: { name: string }) => m.name)).toEqual([
+    "永久模型",
+  ]);
+  expect(saved.parties.map((p: { name: string }) => p.name)).toEqual([
+    "永久作者",
+  ]);
+  expect(saved.works[0].materialSnapshots).toHaveLength(2);
+  expect(saved.workPresets[0].materialSnapshots).toHaveLength(2);
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "临时歌曲", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "制作借物表", exact: true }).click();
+  const music = page.getByRole("region", { name: "音乐节点", exact: true });
+  await music.getByRole("button", { name: "＋ 选择素材", exact: true }).click();
+  const picker = page.getByRole("dialog", { name: "选择素材", exact: true });
+  await expect(picker.getByText("临时歌曲", { exact: true })).toHaveCount(0);
+  await picker.getByRole("button", { name: "取消", exact: true }).click();
+  await page.getByRole("button", { name: "作品记录", exact: true }).click();
+  await page.getByRole("button", { name: "会话验证", exact: true }).click();
+  const record = page.getByRole("dialog", { name: "会话验证", exact: true });
+  await record.getByText("引用素材", { exact: true }).click();
+  await expect(record).toContainText("临时歌曲备注");
+  await expect(record).toContainText("https://example.com/temporary");
+  await record.getByRole("button", { name: "继续制作", exact: true }).click();
+  await expect(page.locator(".paper-preview")).toContainText(
+    "临时歌曲 — 临时作者",
+  );
+  await music
+    .getByRole("button", { name: "编辑临时歌曲", exact: true })
+    .click();
+  const editor = page.getByRole("dialog", { name: "编辑素材", exact: true });
+  await editor.getByLabel("素材名称", { exact: true }).fill("临时歌曲修订");
+  await editor.getByRole("button", { name: "保存素材", exact: true }).click();
+  await page.getByRole("button", { name: "输出并复制", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("作品记录已更新");
+  const updated = await page.evaluate(
+    () => JSON.parse(localStorage.getItem("kari-manager-v1")!).payload,
+  );
+  expect(updated.works).toHaveLength(1);
+  expect(
+    updated.works[0].materialSnapshots.map((m: { name: string }) => m.name),
+  ).toContain("临时歌曲修订");
+  expect(updated.materials).toHaveLength(1);
+  await page.reload();
+  await page.getByRole("button", { name: "制作借物表", exact: true }).click();
+  await page
+    .getByLabel("最终预设", { exact: true })
+    .selectOption(updated.workPresets[0].id);
+  await expect(page.locator(".paper-preview")).toContainText(
+    "临时歌曲 — 临时作者",
+  );
+});
+
+test("模板标签换行和节点间空行实时预览并保存", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "预设", exact: true }).click();
+  await page.getByRole("button", { name: "输出模板", exact: true }).click();
+  await page
+    .getByRole("button", { name: "编辑格式", exact: true })
+    .first()
+    .click();
+  const dialog = page.getByRole("dialog", { name: "输出模板", exact: true });
+  await dialog.getByLabel("标签后换行", { exact: true }).check();
+  await dialog.getByLabel("节点间空行", { exact: true }).fill("1");
+  await dialog.getByLabel("显示来源链接", { exact: true }).check();
+  await expect(dialog.locator(".template-sample pre")).toHaveText(
+    "【借物表】\n【模型】\n作者甲 / 作者乙\nhttps://example.com/model\n\n【动作】\n作者甲\n\n【音乐】\n歌曲标题 — 作者丙\n",
+    { useInnerText: false },
+  );
+  await dialog.getByRole("button", { name: "保存模板", exact: true }).click();
+  await page.reload();
+  await page.getByRole("button", { name: "预设", exact: true }).click();
+  await page.getByRole("button", { name: "输出模板", exact: true }).click();
+  await page
+    .getByRole("button", { name: "编辑格式", exact: true })
+    .first()
+    .click();
+  await expect(dialog.getByLabel("标签后换行", { exact: true })).toBeChecked();
+  await expect(dialog.getByLabel("节点间空行", { exact: true })).toHaveValue(
+    "1",
+  );
+});
 test("候选只保存最终引用并按分类隔离，日语敬称列可开关", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "＋ 添加素材", exact: true }).click();

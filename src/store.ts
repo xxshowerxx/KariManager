@@ -3,6 +3,7 @@ import { defaults } from "./core/defaults";
 import { clone, parseState, type State } from "./core/model";
 import * as platform from "./platform";
 import { sourceFromFormat } from "./core/template";
+import { SessionMaterials } from "./core/session";
 class Store {
   private state: State = defaults();
   private revision = 0;
@@ -18,6 +19,7 @@ class Store {
   async initialize() {
     const { payload, revision } = await platform.load();
     this.state = payload ? parseState(payload) : defaults();
+    sessionMaterials.clear();
     this.revision = revision;
     const chinese = this.state.templates.find((t) => t.id === "template-zh");
     const renameChinese = chinese?.name === "中文清晰";
@@ -56,5 +58,8 @@ class Store {
   }
 }
 export const store = new Store();
+export const sessionMaterials = new SessionMaterials();
+export const useSessionMaterials = () =>
+  useSyncExternalStore(sessionMaterials.subscribe, sessionMaterials.get);
 export const useStateData = () =>
   useSyncExternalStore(store.subscribe, store.get);

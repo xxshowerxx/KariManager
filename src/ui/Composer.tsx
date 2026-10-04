@@ -7,9 +7,13 @@ import {
   uid,
   type Draft,
   type Material,
+  type MaterialSnapshots,
+  newMaterial,
+  withSnapshots,
+  snapshotsFor,
 } from "../core/model";
 import { contextFor, render } from "../core/template";
-import { store, useStateData } from "../store";
+import { store, useStateData, useSessionMaterials } from "../store";
 import * as platform from "../platform";
 import {
   Field,
@@ -24,12 +28,17 @@ export function MaterialPicker({
   selected,
   onSelect,
   onClose,
+  snapshots = {},
 }: {
   selected: string[];
   onSelect: (ids: string[]) => void;
   onClose: () => void;
+  snapshots?: MaterialSnapshots;
 }) {
-  const s = useStateData(),
+  const base = useStateData(),
+    session = useSessionMaterials(),
+    s = withSnapshots(withSnapshots(base, session), snapshots),
+    [creating, setCreating] = useState<Material | null>(null),
     [ids, set] = useState(selected),
     [q, setQ] = useState(""),
     [category, setCategory] = useState("");
@@ -62,6 +71,9 @@ export function MaterialPicker({
             ),
           )}
         </select>
+        <button onClick={() => setCreating(newMaterial(s.sourcePresets[0]))}>
+          ＋ 创建来源
+        </button>
       </div>
       <div className="picker-list">
         {visible.map((m) => (
@@ -81,13 +93,12 @@ export function MaterialPicker({
               <strong>{materialName(m)}</strong>
               <small>
                 {m.category} · {creditNames(m, s)}
+                {!base.materials.some((x) => x.id === m.id) ? " · 临时" : ""}
               </small>
             </span>
           </label>
         ))}
-        {!visible.length && (
-          <p className="muted">没有可选素材，请先到资料库添加</p>
-        )}
+        {!visible.length && <p className="muted">暂无素材</p>}
       </div>
       <footer className="modal-footer">
         <span className="muted">已选择 {ids.length} 份 · 顺序按选择先后</span>
@@ -102,6 +113,15 @@ export function MaterialPicker({
           选好了
         </button>
       </footer>
+      {creating && (
+        <MaterialEditor
+          initial={creating}
+          allowTemporary
+          snapshots={snapshots}
+          onClose={() => setCreating(null)}
+          onSaved={(m) => set((current) => [...new Set([...current, m.id])])}
+        />
+      )}
     </Modal>
   );
 }
@@ -114,7 +134,9 @@ export function Composer({
   setDraft: Dispatch<SetStateAction<Draft>>;
   onTemplates: () => void;
 }) {
-  const s = useStateData(),
+  const base = useStateData(),
+    session = useSessionMaterials(),
+    s = withSnapshots(withSnapshots(base, session), draft),
     [picker, setPicker] = useState<number | null>(null),
     [saving, setSaving] = useState(false),
     [presetName, setPresetName] = useState<string | null>(null),
@@ -151,6 +173,7 @@ export function Composer({
     await task(
       async () => {
         const value = clone(draft);
+        Object.assign(value, snapshotsFor(s, value.bindings));
         value.templateId = template.id;
         value.title =
           value.title.trim() ||
@@ -255,6 +278,8 @@ export function Composer({
                       templateId: p.templateId,
                       bindings: clone(p.bindings),
                       publicTexts: clone(p.publicTexts),
+                      materialSnapshots: clone(p.materialSnapshots),
+                      partySnapshots: clone(p.partySnapshots),
                     });
                 }}
               >
@@ -582,13 +607,19 @@ export function Composer({
       </div>
       {picker !== null && (
         <MaterialPicker
+          snapshots={draft}
           selected={draft.bindings[picker].materialIds}
           onSelect={(ids) => bind(picker, { materialIds: ids })}
           onClose={() => setPicker(null)}
         />
       )}{" "}
       {editing && (
-        <MaterialEditor initial={editing} onClose={() => setEditing(null)} />
+        <MaterialEditor
+          initial={editing}
+          allowTemporary
+          snapshots={draft}
+          onClose={() => setEditing(null)}
+        />
       )}
       {presetName !== null && (
         <Modal title="保存最终预设" onClose={() => setPresetName(null)}>
@@ -609,6 +640,7 @@ export function Composer({
                     bindings: clone(draft.bindings),
                     templateId: draft.templateId,
                     publicTexts: clone(draft.publicTexts),
+                    ...snapshotsFor(s, draft.bindings),
                   };
                   if (existing < 0) d.workPresets.push(value);
                   else d.workPresets[existing] = value;

@@ -36,6 +36,8 @@ export function defaultFormat(
     titleSeparator: " — ",
     headerGap: 0,
     rowGap: 0,
+    nodeGap: 0,
+    labelNewline: false,
     style: language === "en" ? style : "plain",
     suffix: language === "ja" ? "様" : "",
     showSources: false,

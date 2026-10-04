@@ -13,6 +13,7 @@ export interface Row {
   sources: string[];
   note: string;
   labels?: string[];
+  nodeId?: string;
 }
 export interface Context {
   rows: Row[];
@@ -30,6 +31,7 @@ type Ast =
       gap: number;
       children: Ast[];
       condition?: string;
+      nodeGap?: number;
     };
 type Value = string | Credit[];
 const maxLength = 100_000;
@@ -101,7 +103,7 @@ function header(value: string): Ast {
 export function compile(source: string): Ast[] {
   if (source.length > maxLength) return fail("模板超过100000字符");
   const prepared = source.replace(
-    /^[ \t]*({{(?:[#/][^\n]*?|blank\s+\d+)}})[ \t]*(?:\r?\n|$)/gm,
+    /^[ \t]*({{(?:[#/][^{}\n]*|blank\s+\d+)}})[ \t]*(?:\r?\n|$)/gm,
     "$1",
   );
   const root: Ast[] = [],
@@ -124,15 +126,21 @@ export function compile(source: string): Ast[] {
       continue;
     }
     if (tag.startsWith("#")) {
-      const loop = /^#(rows|texts)(?:\s+gap=(\d+))?$/.exec(tag);
+      const loop = /^#(rows|texts)(?:\s+gap=(\d+))?(?:\s+nodeGap=(\d+))?$/.exec(
+        tag,
+      );
       if (loop) {
         if (stack.some((s) => s.kind === "rows" || s.kind === "texts"))
           fail("不支持嵌套循环");
         const gap = Number(loop[2] || 0);
         if (gap > 10) fail("空行数必须在0到10之间");
+        const nodeGap = loop[3] === undefined ? undefined : Number(loop[3]);
+        if (nodeGap !== undefined && (nodeGap > 10 || loop[1] !== "rows"))
+          fail("节点间空行必须用于rows且在0到10之间");
         const node: Ast = {
           kind: loop[1] as "rows" | "texts",
           gap,
+          nodeGap,
           children: [],
         };
         body.push(node);
@@ -222,8 +230,16 @@ export function render(source: string, context: Context): string {
           result += nodes(node.children, row, text);
       } else if (node.kind === "rows")
         result += context.rows
-          .map((r) => nodes(node.children, r, text))
-          .join("\n".repeat(node.gap));
+          .map((r, i) => {
+            const previous = context.rows[i - 1];
+            const gap =
+              previous &&
+              (previous.nodeId ?? previous.label) !== (r.nodeId ?? r.label)
+                ? (node.nodeGap ?? node.gap)
+                : node.gap;
+            return (i ? "\n".repeat(gap) : "") + nodes(node.children, r, text);
+          })
+          .join("");
       else if (node.kind === "texts")
         result += context.texts
           .map((t) => nodes(node.children, row, t))
@@ -313,6 +329,7 @@ export function contextFor(
       .filter((m) => !!m);
     const from = (m: (typeof selected)[number]): Row => ({
       label,
+      nodeId: b.nodeId,
       title: b.titleOverrides[m.id] ?? m.name,
       credits: m.groups.flatMap((g) =>
         g.partyIds
@@ -360,6 +377,7 @@ export function contextFor(
         const names = new Set<string>();
         rows.push({
           label: labels.join(nodeJoiner),
+          nodeId: b.nodeId,
           labels,
           title: [
             ...new Set(combined.map((r) => r.title).filter(Boolean)),
@@ -380,6 +398,7 @@ export function contextFor(
       const parts = selected.map(from);
       rows.push({
         label,
+        nodeId: b.nodeId,
         title: "",
         credits: parts.flatMap((p) => p.credits),
         sources: parts.flatMap((p) => p.sources),
@@ -397,5 +416,5 @@ export function contextFor(
 export function sourceFromFormat(f: Format): string {
   const q = JSON.stringify;
   const style = f.style === "plain" ? "" : ` | style:${q(f.style)}`;
-  return `{{header ${q(f.header)} left=${q(f.left)} right=${q(f.right)} style=${q(f.style)}}}\n${f.headerGap ? `{{blank ${f.headerGap}}}\n` : ""}{{#rows gap=${f.rowGap}}}\n${f.labelLeft}{{labels | join:${q(f.nodeJoiner ?? "・")}${style}}}${f.labelRight}${f.delimiter}{{#if title}}{{title}}${f.titleSeparator}{{/if}}{{credits${f.suffix ? ` | suffix:${q(f.suffix)}` : ""} | join:${q(f.joiner)}}}\n${f.showSources ? '{{#if sources}}\n{{sources | join:"\\n"}}\n{{/if}}\n' : ""}{{/rows}}\n{{#texts}}\n{{text}}\n{{/texts}}`;
+  return `{{header ${q(f.header)} left=${q(f.left)} right=${q(f.right)} style=${q(f.style)}}}\n${f.headerGap ? `{{blank ${f.headerGap}}}\n` : ""}{{#rows gap=${f.rowGap} nodeGap=${f.nodeGap ?? f.rowGap}}}\n${f.labelLeft}{{labels | join:${q(f.nodeJoiner ?? "・")}${style}}}${f.labelRight}${f.labelNewline ? f.delimiter.trimEnd() + "\n" : f.delimiter}{{#if title}}{{title}}${f.titleSeparator}{{/if}}{{credits${f.suffix ? ` | suffix:${q(f.suffix)}` : ""} | join:${q(f.joiner)}}}\n${f.showSources ? '{{#if sources}}\n{{sources | join:"\\n"}}\n{{/if}}\n' : ""}{{/rows}}\n{{#texts}}\n{{text}}\n{{/texts}}`;
 }

@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { clone, type Work } from "../core/model";
+import { clone, materialName, type Work } from "../core/model";
 import { store, useStateData } from "../store";
 import * as platform from "../platform";
 import { Empty, Field, Modal, PageHeader, prettyDate, useTask } from "./common";
+import { LocalFileActions } from "./LocalFileActions";
 export function History({
   onOpen,
   initialWorkId = null,
@@ -102,6 +103,51 @@ export function History({
             </button>
           )}
           <pre className="history-output">{selected.output}</pre>
+          {!!selected.materialSnapshots?.length && (
+            <details className="work-material-snapshots">
+              <summary>引用素材</summary>
+              {selected.materialSnapshots.map((m) => (
+                <section className="source-group" key={m.id}>
+                  <strong>{materialName(m)}</strong>
+                  {m.category && <span className="badge">{m.category}</span>}
+                  {m.groups
+                    .filter((g) => g.partyIds.length)
+                    .map((g) => (
+                      <p key={g.category.id}>
+                        {g.category.label}：
+                        {g.partyIds
+                          .map(
+                            (id) =>
+                              selected.partySnapshots?.find((p) => p.id === id)
+                                ?.name || "",
+                          )
+                          .join(" / ")}
+                      </p>
+                    ))}
+                  {m.sources.map((link, i) => (
+                    <p key={i}>
+                      <button
+                        className="text-link"
+                        onClick={() =>
+                          void task(() => platform.openTarget(link))
+                        }
+                      >
+                        {link}
+                      </button>
+                    </p>
+                  ))}
+                  {m.path && (
+                    <>
+                      <p className="path-text">{m.path}</p>
+                      <LocalFileActions path={m.path} compact />
+                    </>
+                  )}
+                  {m.note && <p className="note-text">{m.note}</p>}
+                  {m.tags.length > 0 && <p>{m.tags.join(" / ")}</p>}
+                </section>
+              ))}
+            </details>
+          )}
           <div className="small-actions">
             <button
               onClick={() =>

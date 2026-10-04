@@ -139,7 +139,7 @@ it("链接为空不增加空行，指定空行数仍有效", () => {
   expect(output).toBe(
     "Credits\nModel：作者\nhttps://example.com\nMotion：作者\nMusic：作者\n",
   );
-  expect(render(sourceFromFormat({ ...f, rowGap: 1 }), context)).toContain(
+  expect(render(sourceFromFormat({ ...f, nodeGap: 1 }), context)).toContain(
     "Motion：作者\n\nMusic：作者",
   );
   expect(s.schemaVersion).toBe(1);

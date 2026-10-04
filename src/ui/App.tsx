@@ -50,6 +50,8 @@ export function App() {
         : s.templates[0].id,
       bindings: clone(w.bindings),
       publicTexts: clone(w.publicTexts),
+      materialSnapshots: clone(w.materialSnapshots),
+      partySnapshots: clone(w.partySnapshots),
     });
     setPage("compose");
   }
@@ -63,6 +65,8 @@ export function App() {
       templateId: p.templateId,
       bindings: clone(p.bindings),
       publicTexts: clone(p.publicTexts),
+      materialSnapshots: clone(p.materialSnapshots),
+      partySnapshots: clone(p.partySnapshots),
     });
     setPage("compose");
   }
@@ -104,11 +108,11 @@ export function App() {
     }
   }
   const nav = [
-    ["library", "◇", "资料库"],
     ["compose", "▤", "制作借物表"],
-    ["history", "◷", "作品记录"],
-    ["folders", "▱", "素材目录"],
     ["presets", "⌘", "预设"],
+    ["library", "◇", "资料库"],
+    ["folders", "▱", "素材目录"],
+    ["history", "◷", "作品记录"],
     ["settings", "⚙", "数据与设置"],
   ];
   return (

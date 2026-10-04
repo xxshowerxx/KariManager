@@ -607,16 +607,22 @@ export function TemplateEditor({
                     </select>
                   </Field>
                 )}
-                {(["headerGap", "rowGap"] as const).map((key) => (
+                {(["headerGap", "rowGap", "nodeGap"] as const).map((key) => (
                   <Field
                     key={key}
-                    label={key === "headerGap" ? "标题后空行" : "行间空行"}
+                    label={
+                      {
+                        headerGap: "标题后空行",
+                        rowGap: "行间空行",
+                        nodeGap: "节点间空行",
+                      }[key]
+                    }
                   >
                     <input
                       type="number"
                       min={0}
                       max={10}
-                      value={t.format[key]}
+                      value={t.format[key] ?? t.format.rowGap}
                       onChange={(e) =>
                         change(
                           key,
@@ -626,6 +632,14 @@ export function TemplateEditor({
                     />
                   </Field>
                 ))}
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={t.format.labelNewline ?? false}
+                    onChange={(e) => change("labelNewline", e.target.checked)}
+                  />
+                  标签后换行
+                </label>
                 <label className="check">
                   <input
                     type="checkbox"

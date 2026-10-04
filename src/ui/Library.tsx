@@ -8,12 +8,19 @@ import {
   uid,
   usage,
   validateMaterial,
+  withSnapshots,
   type Material,
   type Party,
   type State,
   type Work,
+  type MaterialSnapshots,
 } from "../core/model";
-import { store, useStateData } from "../store";
+import {
+  store,
+  useStateData,
+  sessionMaterials,
+  useSessionMaterials,
+} from "../store";
 import * as platform from "../platform";
 import { importConflict, sourceCandidates } from "../core/files";
 import { LocalFileActions } from "./LocalFileActions";
@@ -42,13 +49,22 @@ export function MaterialEditor({
   initial,
   onClose,
   onSaved,
+  allowTemporary = false,
+  snapshots = {},
 }: {
   initial: Material;
   onClose: () => void;
   onSaved?: (m: Material) => void;
+  allowTemporary?: boolean;
+  snapshots?: MaterialSnapshots;
 }) {
-  const s = useStateData(),
+  const base = useStateData(),
+    session = useSessionMaterials(),
+    s = withSnapshots(withSnapshots(base, session), snapshots),
     [m, set] = useState(() => clone(initial)),
+    [temporary, setTemporary] = useState(
+      allowTemporary && !base.materials.some((x) => x.id === initial.id),
+    ),
     [pending, setPending] = useState<Party[]>([]),
     [inputs, setInputs] = useState<Record<string, string>>({});
   const task = useTask(),
@@ -79,14 +95,15 @@ export function MaterialEditor({
   async function submit() {
     await task(async () => {
       const kind = m.pathKind ?? (await platform.pathKind(materialPath(m, s)));
-      await store.update((d) => {
+      let saved = m;
+      const prepare = (d: State) => {
         const value = clone(m);
         if (kind) value.pathKind = kind;
         value.category = value.category.trim();
         value.sources = cleanLines(value.sources.join("\n"));
         value.tags = value.tags.map((t) => t.trim()).filter(Boolean);
         const usedIds = new Set(value.groups.flatMap((g) => g.partyIds));
-        for (const p of pending.filter((p) => usedIds.has(p.id))) {
+        for (const p of pool.filter((p) => usedIds.has(p.id))) {
           const duplicate = d.parties.find((x) => x.name === p.name);
           if (duplicate) {
             for (const g of value.groups)
@@ -109,8 +126,19 @@ export function MaterialEditor({
         const i = d.materials.findIndex((x) => x.id === value.id);
         if (i < 0) d.materials.push(value);
         else d.materials[i] = value;
-      });
-      onSaved?.(m);
+        saved = value;
+      };
+      if (temporary) {
+        const view = clone(s);
+        prepare(view);
+        const used = new Set(saved.groups.flatMap((g) => g.partyIds));
+        sessionMaterials.save(
+          base,
+          saved,
+          view.parties.filter((p) => used.has(p.id)),
+        );
+      } else await store.update(prepare);
+      onSaved?.(saved);
       onClose();
     }, "素材已保存");
   }
@@ -127,6 +155,17 @@ export function MaterialEditor({
         }}
       >
         <div className="form-grid">
+          {allowTemporary && !base.materials.some((x) => x.id === m.id) && (
+            <Field label="保存方式">
+              <select
+                value={temporary ? "temporary" : "permanent"}
+                onChange={(e) => setTemporary(e.target.value === "temporary")}
+              >
+                <option value="temporary">临时</option>
+                <option value="permanent">永久</option>
+              </select>
+            </Field>
+          )}
           <Field label="素材名称">
             <input
               value={m.name}

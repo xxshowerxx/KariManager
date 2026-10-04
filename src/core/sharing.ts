@@ -5,6 +5,7 @@ import {
   parseState,
   materialName,
   stateSchema,
+  withSnapshots,
   type State,
 } from "./model";
 import { compile } from "./template";
@@ -80,6 +81,11 @@ export function share(
         : [],
   );
   data.workPresets = clone(work);
+  const materialState = work.reduce((view, w) => withSnapshots(view, w), s);
+  for (const w of data.workPresets) {
+    delete w.materialSnapshots;
+    delete w.partySnapshots;
+  }
   const templateIds = work.map((w) => w.templateId);
   data.templates = clone(
     kind === "all"
@@ -93,7 +99,9 @@ export function share(
     const ids = new Set(
       work.flatMap((w) => w.bindings.flatMap((b) => b.materialIds)),
     );
-    data.materials = clone(s.materials.filter((m) => ids.has(m.id)));
+    data.materials = clone(
+      materialState.materials.filter((m) => ids.has(m.id)),
+    );
     for (const m of data.materials) {
       m.name = materialName(m);
       m.path = "";
@@ -110,7 +118,9 @@ export function share(
     const partyIds = new Set(
       data.materials.flatMap((m) => m.groups.flatMap((g) => g.partyIds)),
     );
-    data.parties = clone(s.parties.filter((p) => partyIds.has(p.id)));
+    data.parties = clone(
+      materialState.parties.filter((p) => partyIds.has(p.id)),
+    );
     for (const p of data.parties) p.note = "";
   } else
     for (const w of data.workPresets)
@@ -141,6 +151,19 @@ export function readImport(text: string): State | Bundle {
 export function mergeBundle(current: State, bundle: Bundle): State {
   const s = clone(current),
     data = clone(bundle.data);
+  for (const w of data.workPresets ?? []) {
+    for (const [key, values] of [
+      ["materials", w.materialSnapshots],
+      ["parties", w.partySnapshots],
+    ] as const)
+      for (const value of values ?? []) {
+        data[key] ??= [];
+        if (!data[key]!.some((x) => x.id === value.id))
+          (data[key] as unknown[]).push(value);
+      }
+    delete w.materialSnapshots;
+    delete w.partySnapshots;
+  }
   const maps: Record<string, Map<string, string>> = {};
   for (const key of sharedKeys)
     maps[key] = new Map((data[key] || []).map((x) => [x.id, uid()]));
