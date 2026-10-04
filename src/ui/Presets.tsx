@@ -12,6 +12,10 @@ import {
 import { defaultFormat } from "../core/defaults";
 import { newSection } from "../core/sections";
 import {
+  materialCategories,
+  removeMaterialCategory,
+} from "../core/material-categories";
+import {
   SectionPresetEditor,
   SectionTemplateFields,
   validateSectionTemplates,
@@ -734,6 +738,7 @@ export function Presets({
     [template, setTemplate] = useState<Template | null>(null),
     [sectionPreset, setSectionPreset] = useState<SectionPreset | null>(null),
     [include, setInclude] = useState(false);
+  const [categoryName, setCategoryName] = useState<string | null>(null);
   const task = useTask();
   const exportOne = (kind: ShareKind, id: string, name: string) =>
     void task(
@@ -792,6 +797,7 @@ export function Presets({
     );
   };
   const add = () => {
+    if (tab === "category") setCategoryName("");
     if (tab === "section")
       setSectionPreset({
         id: uid(),
@@ -861,6 +867,7 @@ export function Presets({
       />
       <div className="tabs wide-tabs">
         {[
+          ["category", "素材分类"],
           ["source", "来源预设"],
           ["domain", "领域预设"],
           ["node", "节点预设"],
@@ -888,6 +895,35 @@ export function Presets({
         </label>
       )}
       <div className="card-grid">
+        {tab === "category" &&
+          materialCategories(s).map((category) => (
+            <article className="card" key={category}>
+              <h3>{category}</h3>
+              <p>
+                {s.materials.filter((m) => m.category === category).length}{" "}
+                份素材
+              </p>
+              <button
+                className="text danger"
+                aria-label={`删除分类${category}`}
+                onClick={() => {
+                  if (
+                    !confirm(
+                      `删除分类“${category}”？相关素材将设为未分类，素材文件、署名和作品历史会保留。`,
+                    )
+                  )
+                    return;
+                  void task(
+                    () =>
+                      store.update((d) => removeMaterialCategory(d, category)),
+                    "已删除素材分类",
+                  );
+                }}
+              >
+                删除
+              </button>
+            </article>
+          ))}
         {tab === "section" &&
           s.sectionPresets.map((p) => (
             <div className="card" key={p.id}>
@@ -1062,6 +1098,40 @@ export function Presets({
       {source && (
         <SourceEditor value={source} onClose={() => setSource(null)} />
       )}{" "}
+      {categoryName !== null && (
+        <Modal title="新增素材分类" onClose={() => setCategoryName(null)}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void task(async () => {
+                const name = categoryName.trim();
+                if (!name) throw new Error("请填写分类名称");
+                await store.update((d) => {
+                  if (materialCategories(d).includes(name))
+                    throw new Error("该分类已存在");
+                  d.materialCategories = [...materialCategories(d), name];
+                });
+                setCategoryName(null);
+              }, "已新增素材分类");
+            }}
+          >
+            <Field label="分类名称">
+              <input
+                required
+                maxLength={100}
+                value={categoryName}
+                onChange={(e) => setCategoryName(e.target.value)}
+              />
+            </Field>
+            <footer className="modal-footer">
+              <button type="button" onClick={() => setCategoryName(null)}>
+                取消
+              </button>
+              <button className="primary">保存分类</button>
+            </footer>
+          </form>
+        </Modal>
+      )}
       {domain && (
         <DomainEditor value={domain} onClose={() => setDomain(null)} />
       )}{" "}

@@ -29,6 +29,7 @@ import {
   newestMaterials,
 } from "../core/files";
 import { SourceEditor } from "./Presets";
+import { materialCategories } from "../core/material-categories";
 import { partyInput, partyName, sourceTarget } from "../core/sections";
 import { LocalFileActions } from "./LocalFileActions";
 import { MaterialCategoryField } from "./MaterialCategoryField";
@@ -71,21 +72,47 @@ export function MaterialEditor({
   onSaved,
   allowTemporary = false,
   snapshots = {},
+  suggestedAuthor = "",
 }: {
   initial: Material;
   onClose: () => void;
   onSaved?: (m: Material) => void;
   allowTemporary?: boolean;
   snapshots?: MaterialSnapshots;
+  suggestedAuthor?: string;
 }) {
   const base = useStateData(),
     session = useSessionMaterials(),
     s = withSnapshots(withSnapshots(base, session), snapshots),
-    [m, set] = useState(() => clone(initial)),
+    [suggested] = useState<Party | null>(() =>
+      suggestedAuthor && !base.materials.some((m) => m.id === initial.id)
+        ? (s.parties.find(
+            (p) => partyName(p).toLowerCase() === suggestedAuthor.toLowerCase(),
+          ) ?? {
+            id: uid(),
+            ...partyInput(suggestedAuthor),
+            links: [],
+            note: "",
+            suffixMode: "default",
+            suffix: "",
+          })
+        : null,
+    ),
+    [m, set] = useState(() => {
+      const value = clone(initial);
+      const author = value.groups.find((g) => g.category.author);
+      if (suggested && author && !author.partyIds.length)
+        author.partyIds = [suggested.id];
+      return value;
+    }),
     [temporary, setTemporary] = useState(
       allowTemporary && !base.materials.some((x) => x.id === initial.id),
     ),
-    [pending, setPending] = useState<Party[]>([]),
+    [pending, setPending] = useState<Party[]>(() =>
+      suggested && !s.parties.some((p) => p.id === suggested.id)
+        ? [suggested]
+        : [],
+    ),
     [sourceEditor, setSourceEditor] = useState<SourcePreset | null>(null),
     [inputs, setInputs] = useState<Record<string, string>>({});
   const task = useTask(),
@@ -677,9 +704,7 @@ export function Library({ onOpenWork }: { onOpenWork: (w: Work) => void }) {
               onChange={(e) => setCategory(e.target.value)}
             >
               <option value="">所有分类</option>
-              {[
-                ...new Set(s.materials.map((m) => m.category).filter(Boolean)),
-              ].map((c) => (
+              {materialCategories(s).map((c) => (
                 <option key={c}>{c}</option>
               ))}
             </select>

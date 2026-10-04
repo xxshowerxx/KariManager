@@ -4,6 +4,7 @@ import { clone, parseState, type State } from "./core/model";
 import * as platform from "./platform";
 import { sourceFromFormat } from "./core/template";
 import { SessionMaterials } from "./core/session";
+import { materialCategories } from "./core/material-categories";
 class Store {
   private state: State = defaults();
   private revision = 0;
@@ -25,6 +26,10 @@ class Store {
     const renameChinese = chinese?.name === "中文清晰";
     if (chinese && renameChinese) chinese.name = "中文";
     let changed = false;
+    if (!this.state.materialCategories) {
+      this.state.materialCategories = materialCategories(this.state);
+      changed = true;
+    }
     if (!this.state.sectionPresets.length) {
       this.state.sectionPresets = defaults().sectionPresets;
       changed = true;
@@ -45,6 +50,7 @@ class Store {
     const job = this.queue.then(async () => {
       const draft = clone(this.state);
       action(draft);
+      draft.materialCategories = materialCategories(draft);
       parseState(draft);
       const revision = await platform.persist(draft, this.revision);
       this.state = draft;
@@ -55,7 +61,9 @@ class Store {
     return job;
   }
   replace(s: State) {
-    return this.update((draft) => Object.assign(draft, parseState(s)));
+    const next = parseState(s);
+    next.materialCategories = materialCategories(next);
+    return this.update((draft) => Object.assign(draft, next));
   }
   private emit() {
     this.listeners.forEach((cb) => cb());

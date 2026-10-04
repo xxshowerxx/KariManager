@@ -25,6 +25,21 @@ export function newestMaterials(materials: Material[]) {
     )
     .map(({ material }) => material);
 }
+export function authorFromPath(path: string, directory = false): string {
+  const parts = path.replace(/\\/g, "/").split("/").filter(Boolean);
+  for (let index = parts.length - 1; index >= 0; index--) {
+    const name =
+      !directory && index === parts.length - 1
+        ? parts[index].replace(/\.[^.]+$/, "")
+        : parts[index];
+    const matches = [
+      ...name.matchAll(/(?:^|[_\s-]|(?<=[^\x00-\x7F]))by[_\s]*([^_]+)/gi),
+    ];
+    const author = matches.at(-1)?.[1].trim();
+    if (author && !/^[a-f\d]{16,}$/i.test(author)) return author;
+  }
+  return "";
+}
 export function importConflict(
   path: string,
   directory: boolean,

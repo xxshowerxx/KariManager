@@ -28,9 +28,10 @@ test("目录文件录入后可编辑关联资料，移除后恢复录入", async
             return {
               entries: [
                 {
-                  path: "D:/models/test.blend",
-                  relativePath: "test.blend",
-                  name: "test.blend",
+                  path: "D:/models/test_by_Author_396681716aa7439d3d46bca4aa3951c3.blend",
+                  relativePath:
+                    "test_by_Author_396681716aa7439d3d46bca4aa3951c3.blend",
+                  name: "test_by_Author_396681716aa7439d3d46bca4aa3951c3.blend",
                   directory: false,
                   size: 1,
                 },
@@ -52,13 +53,18 @@ test("目录文件录入后可编辑关联资料，移除后恢复录入", async
   await dialog.getByRole("button", { name: "保存目录", exact: true }).click();
   await page.getByRole("button", { name: "浏览文件", exact: true }).click();
   const entry = page.locator(".directory-entry");
+  await expect(
+    entry.getByRole("img", { name: "未录入", exact: true }),
+  ).toHaveCSS("background-color", "rgb(199, 71, 61)");
   await entry.getByRole("button", { name: "录入", exact: true }).click();
-  await dialog.getByLabel("作者", { exact: true }).fill("作者甲");
-  await dialog.getByLabel("作者", { exact: true }).press("Enter");
+  await expect(dialog).toContainText("Author");
   await dialog.getByRole("button", { name: "保存素材", exact: true }).click();
+  await expect(
+    entry.getByRole("img", { name: "已录入", exact: true }),
+  ).toHaveCSS("background-color", "rgb(39, 132, 73)");
   await entry.getByRole("button", { name: "编辑", exact: true }).click();
   await expect(dialog.getByLabel("素材名称", { exact: true })).toHaveValue(
-    "test.blend",
+    "test_by_Author_396681716aa7439d3d46bca4aa3951c3.blend",
   );
   await dialog.getByLabel("素材名称", { exact: true }).fill("更新模型");
   await dialog.getByRole("button", { name: "保存素材", exact: true }).click();
@@ -70,6 +76,9 @@ test("目录文件录入后可编辑关联资料，移除后恢复录入", async
     entry.getByRole("button", { name: "录入", exact: true }),
   ).toBeEnabled();
   await expect(entry).not.toContainText("已录入");
+  await expect(
+    entry.getByRole("img", { name: "未录入", exact: true }),
+  ).toHaveCSS("background-color", "rgb(199, 71, 61)");
 });
 
 test("扩展名输入可以删除逗号，添加和移除标签后保存", async ({ page }) => {

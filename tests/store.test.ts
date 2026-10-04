@@ -15,10 +15,26 @@ vi.mock("../src/platform", () => ({
 }));
 import { store } from "../src/store";
 import { sourceFromFormat } from "../src/core/template";
+import { materialCategories } from "../src/core/material-categories";
 beforeEach(() => {
   backend.revision = 0;
   backend.fail = false;
   backend.payload = null;
+});
+it("旧资料首次加载迁移分类，空分类表重启不恢复默认，恢复旧备份重新收集分类", async () => {
+  const saved = defaults();
+  delete saved.materialCategories;
+  backend.payload = saved;
+  backend.revision = 4;
+  await store.initialize();
+  expect(store.get().materialCategories).toEqual(materialCategories(saved));
+  expect(backend.revision).toBe(5);
+  backend.payload = { ...saved, materialCategories: [] };
+  await store.initialize();
+  expect(store.get().materialCategories).toEqual([]);
+  expect(backend.revision).toBe(5);
+  await store.replace(saved);
+  expect(store.get().materialCategories).toEqual(materialCategories(saved));
 });
 it("旧可视化模板更新条件链接语法，手写模板保持不变", async () => {
   const saved = defaults();

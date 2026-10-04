@@ -1,6 +1,7 @@
 import type { Category, Format, State, Template } from "./model";
 import { sourceFromFormat } from "./template";
 import { newSection } from "./sections";
+import { defaultMaterialCategories } from "./material-categories";
 const category = (id: string, label: string, author = false): Category => ({
   id,
   label,
@@ -112,6 +113,7 @@ export function defaults(): State {
     schemaVersion: 1,
     parties: [],
     materials: [],
+    materialCategories: [...defaultMaterialCategories],
     works: [],
     folders: [],
     workPresets: [],

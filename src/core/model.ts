@@ -214,6 +214,10 @@ export const stateSchema = z
     schemaVersion: z.literal(1),
     parties: z.array(partySchema).max(100_000),
     materials: z.array(materialSchema).max(100_000),
+    materialCategories: z
+      .array(z.string().trim().min(1).max(100))
+      .max(1000)
+      .optional(),
     domains: z.array(domainSchema).min(1).max(1000),
     sourcePresets: z.array(sourcePresetSchema).min(1).max(1000),
     nodePresets: z.array(nodePresetSchema).max(1000),

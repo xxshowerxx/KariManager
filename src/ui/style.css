@@ -740,6 +740,26 @@ td button {
   flex: 1;
   min-width: 0;
 }
+.entry-status {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin: 0 4px 0 2px;
+}
+.entry-status.imported {
+  background: #278449;
+}
+.entry-status.unimported {
+  background: #c7473d;
+}
+.folder-status {
+  width: 12px;
+  height: 7px;
+  transform: skewX(-25deg);
+}
+.file-status {
+  transform: rotate(45deg);
+}
 .picker-row:hover {
   background: #f1f6fc;
 }

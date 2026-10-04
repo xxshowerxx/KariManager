@@ -34,6 +34,7 @@ const bundleSchema = z
         materials: true,
         parties: true,
         sectionPresets: true,
+        materialCategories: true,
       })
       .partial()
       .strict(),
@@ -49,6 +50,7 @@ export function share(
   includeMaterials = false,
 ): Bundle {
   const data: Bundle["data"] = {};
+  if (kind === "all") data.materialCategories = clone(s.materialCategories);
   const work =
     kind === "work"
       ? s.workPresets.filter((x) => x.id === id)
@@ -180,6 +182,10 @@ export function readImport(text: string): State | Bundle {
 export function mergeBundle(current: State, bundle: Bundle): State {
   const s = clone(current),
     data = clone(bundle.data);
+  if (data.materialCategories)
+    s.materialCategories = [
+      ...new Set([...(s.materialCategories ?? []), ...data.materialCategories]),
+    ];
   for (const w of data.workPresets ?? []) {
     for (const [key, values] of [
       ["materials", w.materialSnapshots],

@@ -15,6 +15,7 @@ import {
   importConflict,
   pathKey,
   within,
+  authorFromPath,
 } from "../core/files";
 import { store, useStateData } from "../store";
 import * as platform from "../platform";
@@ -87,7 +88,13 @@ export function Folders() {
           >
             <div className="directory-entry-name">
               <strong>
-                {e.directory ? "▱" : "◇"} {e.name}
+                <span
+                  className={`entry-status ${e.directory ? "folder-status" : "file-status"} ${conflict ? "imported" : "unimported"}`}
+                  role="img"
+                  aria-label={conflict ? "已录入" : "未录入"}
+                  title={conflict ? "已录入" : "未录入"}
+                />{" "}
+                {e.name}
               </strong>
               <small>{e.relativePath}</small>
               {conflict && <small>已录入：{materialName(conflict)}</small>}
@@ -434,7 +441,14 @@ export function Folders() {
         </Modal>
       )}
       {material && (
-        <MaterialEditor initial={material} onClose={() => setMaterial(null)} />
+        <MaterialEditor
+          initial={material}
+          suggestedAuthor={authorFromPath(
+            material.path || material.relativePath,
+            material.pathKind === "directory",
+          )}
+          onClose={() => setMaterial(null)}
+        />
       )}
       {deleteEntry && folder && (
         <Modal title="移入回收站" onClose={() => setDeleteEntry(null)}>

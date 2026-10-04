@@ -25,6 +25,7 @@ import {
 } from "./common";
 import { creditNames, MaterialEditor, MaterialDetails } from "./Library";
 import { newestMaterials } from "../core/files";
+import { materialCategories } from "../core/material-categories";
 import { SectionsEditor, SectionPresetEditor } from "./Sections";
 import type { SectionPreset } from "../core/model";
 export function MaterialPicker({
@@ -72,11 +73,9 @@ export function MaterialPicker({
           onChange={(e) => setCategory(e.target.value)}
         >
           <option value="">所有分类</option>
-          {[...new Set(s.materials.map((m) => m.category).filter(Boolean))].map(
-            (c) => (
-              <option key={c}>{c}</option>
-            ),
-          )}
+          {materialCategories(s).map((c) => (
+            <option key={c}>{c}</option>
+          ))}
         </select>
         <button onClick={() => setCreating(newMaterial(s.sourcePresets[0]))}>
           ＋ 创建来源
@@ -416,6 +415,12 @@ export function Composer({
             </select>
           </div>
           {draft.bindings.map((b, i) => {
+            if (
+              draft.bindings.some((owner) =>
+                owner.mergedNodeIds?.includes(b.nodeId),
+              )
+            )
+              return null;
             const node = domain.nodes.find((n) => n.id === b.nodeId);
             if (!node)
               return (
