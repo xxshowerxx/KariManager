@@ -52,6 +52,8 @@ export function App() {
       publicTexts: clone(w.publicTexts),
       materialSnapshots: clone(w.materialSnapshots),
       partySnapshots: clone(w.partySnapshots),
+      sectionPresetId: w.sectionPresetId,
+      sections: clone(w.sections),
     });
     setPage("compose");
   }
@@ -67,6 +69,8 @@ export function App() {
       publicTexts: clone(p.publicTexts),
       materialSnapshots: clone(p.materialSnapshots),
       partySnapshots: clone(p.partySnapshots),
+      sectionPresetId: p.sectionPresetId,
+      sections: clone(p.sections),
     });
     setPage("compose");
   }
@@ -220,6 +224,7 @@ export function App() {
                         parties: "常用来源",
                         works: "作品记录",
                         folders: "目录映射",
+                        sectionPresets: "分栏预设",
                       } as Record<string, string>
                     )[k] || k}
                   </span>

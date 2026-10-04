@@ -7,8 +7,15 @@ import {
   type SourcePreset,
   type Template,
   type WorkPreset,
+  type SectionPreset,
 } from "../core/model";
 import { defaultFormat } from "../core/defaults";
+import { newSection } from "../core/sections";
+import {
+  SectionPresetEditor,
+  SectionTemplateFields,
+  validateSectionTemplates,
+} from "./Sections";
 import { render, sourceFromFormat, type Context } from "../core/template";
 import { stylize, styles } from "../core/unicode";
 import { share, type ShareKind } from "../core/sharing";
@@ -475,6 +482,7 @@ export function TemplateEditor({
   onClose: () => void;
 }) {
   const [t, set] = useState(() => clone(value));
+  const [sectionMode, setSectionMode] = useState(false);
   const task = useTask();
   const names =
     t.language === "en"
@@ -518,6 +526,7 @@ export function TemplateEditor({
           e.preventDefault();
           void task(async () => {
             render(t.source, sample);
+            validateSectionTemplates(t);
             await store.update((s) => {
               const i = s.templates.findIndex((x) => x.id === t.id);
               if (i < 0) s.templates.push(t);
@@ -559,7 +568,7 @@ export function TemplateEditor({
         <div className="tabs">
           <button
             type="button"
-            className={t.mode === "visual" ? "active" : ""}
+            className={!sectionMode && t.mode === "visual" ? "active" : ""}
             onClick={() => {
               if (
                 t.mode === "code" &&
@@ -567,115 +576,131 @@ export function TemplateEditor({
               )
                 return;
               set({ ...t, mode: "visual", source: sourceFromFormat(t.format) });
+              setSectionMode(false);
             }}
           >
             可视化设置
           </button>
           <button
             type="button"
-            className={t.mode === "code" ? "active" : ""}
-            onClick={() => set({ ...t, mode: "code" })}
+            className={!sectionMode && t.mode === "code" ? "active" : ""}
+            onClick={() => {
+              setSectionMode(false);
+              set({ ...t, mode: "code" });
+            }}
           >
             模板语法
           </button>
+          <button
+            type="button"
+            className={sectionMode ? "active" : ""}
+            onClick={() => setSectionMode(true)}
+          >
+            分栏格式
+          </button>
         </div>
-        <div className="template-editor-layout">
-          <div>
-            {t.mode === "visual" ? (
-              <div className="form-grid">
-                {fields
-                  .filter(([key]) => key !== "suffix" || t.language === "ja")
-                  .map(([key, label]) => (
-                    <Field key={key} label={label}>
+        {sectionMode ? (
+          <SectionTemplateFields template={t} onChange={set} />
+        ) : (
+          <div className="template-editor-layout">
+            <div>
+              {t.mode === "visual" ? (
+                <div className="form-grid">
+                  {fields
+                    .filter(([key]) => key !== "suffix" || t.language === "ja")
+                    .map(([key, label]) => (
+                      <Field key={key} label={label}>
+                        <input
+                          value={String(t.format[key] ?? "・")}
+                          onChange={(e) => change(key, e.target.value)}
+                        />
+                      </Field>
+                    ))}
+                  {t.language === "en" && (
+                    <Field label="字符样式">
+                      <select
+                        value={t.format.style}
+                        onChange={(e) => change("style", e.target.value)}
+                      >
+                        {styles.map(([id, name]) => (
+                          <option key={id} value={id}>
+                            {name} · {stylize("Model", id)}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  )}
+                  {(["headerGap", "rowGap", "nodeGap"] as const).map((key) => (
+                    <Field
+                      key={key}
+                      label={
+                        {
+                          headerGap: "标题后空行",
+                          rowGap: "行间空行",
+                          nodeGap: "节点间空行",
+                        }[key]
+                      }
+                    >
                       <input
-                        value={String(t.format[key] ?? "・")}
-                        onChange={(e) => change(key, e.target.value)}
+                        type="number"
+                        min={0}
+                        max={10}
+                        value={t.format[key] ?? t.format.rowGap}
+                        onChange={(e) =>
+                          change(
+                            key,
+                            Math.max(0, Math.min(10, Number(e.target.value))),
+                          )
+                        }
                       />
                     </Field>
                   ))}
-                {t.language === "en" && (
-                  <Field label="字符样式">
-                    <select
-                      value={t.format.style}
-                      onChange={(e) => change("style", e.target.value)}
-                    >
-                      {styles.map(([id, name]) => (
-                        <option key={id} value={id}>
-                          {name} · {stylize("Model", id)}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                )}
-                {(["headerGap", "rowGap", "nodeGap"] as const).map((key) => (
-                  <Field
-                    key={key}
-                    label={
-                      {
-                        headerGap: "标题后空行",
-                        rowGap: "行间空行",
-                        nodeGap: "节点间空行",
-                      }[key]
-                    }
-                  >
+                  <label className="check">
                     <input
-                      type="number"
-                      min={0}
-                      max={10}
-                      value={t.format[key] ?? t.format.rowGap}
-                      onChange={(e) =>
-                        change(
-                          key,
-                          Math.max(0, Math.min(10, Number(e.target.value))),
-                        )
-                      }
+                      type="checkbox"
+                      checked={t.format.labelNewline ?? false}
+                      onChange={(e) => change("labelNewline", e.target.checked)}
                     />
-                  </Field>
-                ))}
-                <label className="check">
-                  <input
-                    type="checkbox"
-                    checked={t.format.labelNewline ?? false}
-                    onChange={(e) => change("labelNewline", e.target.checked)}
+                    标签后换行
+                  </label>
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={t.format.showSources}
+                      onChange={(e) => change("showSources", e.target.checked)}
+                    />
+                    显示来源链接
+                  </label>
+                </div>
+              ) : (
+                <>
+                  <textarea
+                    className="code-editor"
+                    aria-label="模板语法"
+                    value={t.source}
+                    onChange={(e) => set({ ...t, source: e.target.value })}
+                    spellCheck={false}
                   />
-                  标签后换行
-                </label>
-                <label className="check">
-                  <input
-                    type="checkbox"
-                    checked={t.format.showSources}
-                    onChange={(e) => change("showSources", e.target.checked)}
-                  />
-                  显示来源链接
-                </label>
-              </div>
-            ) : (
-              <>
-                <textarea
-                  className="code-editor"
-                  aria-label="模板语法"
-                  value={t.source}
-                  onChange={(e) => set({ ...t, source: e.target.value })}
-                  spellCheck={false}
-                />
-                <p className="muted fine-print">
-                  {'{{header "借物表" left="【" right="】"}}'} · {"{{blank 1}}"}
-                  <br />
-                  {"{{#rows gap=0}}"} 循环，{"{{label}}"} 栏目，
-                  {'{{credits | join:" / "}}'} 署名
-                  <br />
-                  {"{{#if title}}{{title}} — {{/if}}"} 可选标题
-                  <br />
-                  {"{{/rows}}"} 结束。可用 suffix、style、frame 过滤器
-                </p>
-              </>
-            )}
+                  <p className="muted fine-print">
+                    {'{{header "借物表" left="【" right="】"}}'} ·{" "}
+                    {"{{blank 1}}"}
+                    <br />
+                    {"{{#rows gap=0}}"} 循环，{"{{label}}"} 栏目，
+                    {'{{credits | join:" / "}}'} 署名
+                    <br />
+                    {"{{#if title}}{{title}} — {{/if}}"} 可选标题
+                    <br />
+                    {"{{/rows}}"} 结束。可用 suffix、style、frame 过滤器
+                  </p>
+                </>
+              )}
+            </div>
+            <div className="template-sample">
+              <span className="eyebrow">实时预览</span>
+              <pre>{error || output}</pre>
+            </div>
           </div>
-          <div className="template-sample">
-            <span className="eyebrow">实时预览</span>
-            <pre>{error || output}</pre>
-          </div>
-        </div>
+        )}
         <footer className="modal-footer">
           {error && <span className="error">请先修正语法</span>}
           <button type="button" onClick={onClose}>
@@ -704,6 +729,7 @@ export function Presets({
     [domain, setDomain] = useState<Domain | null>(null),
     [node, setNode] = useState<NodePreset | null>(null),
     [template, setTemplate] = useState<Template | null>(null),
+    [sectionPreset, setSectionPreset] = useState<SectionPreset | null>(null),
     [include, setInclude] = useState(false);
   const task = useTask();
   const exportOne = (kind: ShareKind, id: string, name: string) =>
@@ -741,6 +767,13 @@ export function Presets({
           }
           if (kind === "work")
             d.workPresets = d.workPresets.filter((x) => x.id !== id);
+          if (kind === "section") {
+            if (d.sectionPresets.length === 1)
+              throw new Error("至少保留一个分栏预设");
+            d.sectionPresets = d.sectionPresets.filter((x) => x.id !== id);
+            for (const p of d.workPresets)
+              if (p.sectionPresetId === id) p.sectionPresetId = "";
+          }
           if (kind === "domain") {
             if (
               d.domains.length === 1 ||
@@ -756,6 +789,12 @@ export function Presets({
     );
   };
   const add = () => {
+    if (tab === "section")
+      setSectionPreset({
+        id: uid(),
+        name: "新分栏预设",
+        sections: [newSection("credits")],
+      });
     if (tab === "source")
       setSource({
         id: uid(),
@@ -803,7 +842,6 @@ export function Presets({
     <>
       <PageHeader
         title="预设管理"
-        description="管理来源分类、领域、节点、作品组合及输出模板"
         actions={
           <>
             <button onClick={onImport}>导入 JSON</button>
@@ -824,6 +862,7 @@ export function Presets({
           ["domain", "领域预设"],
           ["node", "节点预设"],
           ["work", "最终预设"],
+          ["section", "分栏预设"],
           ["template", "输出模板"],
         ].map(([id, name]) => (
           <button
@@ -846,6 +885,38 @@ export function Presets({
         </label>
       )}
       <div className="card-grid">
+        {tab === "section" &&
+          s.sectionPresets.map((p) => (
+            <div className="card" key={p.id}>
+              <h3>{p.name}</h3>
+              <p>
+                {p.sections
+                  .map(
+                    (section) =>
+                      ({
+                        credits: "借物表",
+                        creators: "制作人员",
+                        fixedText: "固定说明",
+                        currentText: "本次说明",
+                        references: "参考来源",
+                      })[section.kind],
+                  )
+                  .join(" → ")}
+              </p>
+              <div className="small-actions">
+                <button onClick={() => setSectionPreset(p)}>编辑</button>
+                <button onClick={() => exportOne("section", p.id, p.name)}>
+                  导出
+                </button>
+                <button
+                  className="danger text"
+                  onClick={() => remove("section", p.id)}
+                >
+                  删除
+                </button>
+              </div>
+            </div>
+          ))}
         {tab === "source" &&
           s.sourcePresets.map((p) => (
             <div className="card" key={p.id}>
@@ -994,6 +1065,12 @@ export function Presets({
       {node && <NodePresetEditor value={node} onClose={() => setNode(null)} />}{" "}
       {template && (
         <TemplateEditor value={template} onClose={() => setTemplate(null)} />
+      )}
+      {sectionPreset && (
+        <SectionPresetEditor
+          value={sectionPreset}
+          onClose={() => setSectionPreset(null)}
+        />
       )}
     </>
   );

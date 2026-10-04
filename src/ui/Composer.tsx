@@ -12,7 +12,7 @@ import {
   withSnapshots,
   snapshotsFor,
 } from "../core/model";
-import { contextFor, render } from "../core/template";
+import { renderOutput, newSection, presetSections } from "../core/sections";
 import { store, useStateData, useSessionMaterials } from "../store";
 import * as platform from "../platform";
 import {
@@ -24,6 +24,8 @@ import {
   useTask,
 } from "./common";
 import { creditNames, MaterialEditor } from "./Library";
+import { SectionsEditor, SectionPresetEditor } from "./Sections";
+import type { SectionPreset } from "../core/model";
 export function MaterialPicker({
   selected,
   onSelect,
@@ -140,6 +142,7 @@ export function Composer({
     [picker, setPicker] = useState<number | null>(null),
     [saving, setSaving] = useState(false),
     [presetName, setPresetName] = useState<string | null>(null),
+    [sectionPreset, setSectionPreset] = useState<SectionPreset | null>(null),
     [editing, setEditing] = useState<Material | null>(null);
   const task = useTask();
   const domain = s.domains.find((d) => d.id === draft.domainId)!,
@@ -148,10 +151,7 @@ export function Composer({
   let output = "",
     error = "";
   try {
-    output = render(
-      template.source,
-      contextFor(s, draft, template.language, template.format.nodeJoiner),
-    );
+    output = renderOutput(s, draft, template);
   } catch (e) {
     error = String(e);
   }
@@ -178,10 +178,7 @@ export function Composer({
         value.title =
           value.title.trim() ||
           `${domain.name} ${new Date().toLocaleString("zh-CN", { hour12: false })}`;
-        const text = render(
-          template.source,
-          contextFor(s, value, template.language, template.format.nodeJoiner),
-        );
+        const text = renderOutput(s, value, template);
         let id = "";
         await store.update((d) => {
           id = saveWork(d, value, text).id;
@@ -280,6 +277,8 @@ export function Composer({
                       publicTexts: clone(p.publicTexts),
                       materialSnapshots: clone(p.materialSnapshots),
                       partySnapshots: clone(p.partySnapshots),
+                      sectionPresetId: p.sectionPresetId,
+                      sections: clone(p.sections),
                     });
                 }}
               >
@@ -301,6 +300,28 @@ export function Composer({
                 {s.templates.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="分栏预设">
+              <select
+                value={draft.sectionPresetId ?? ""}
+                onChange={(e) => {
+                  const p = s.sectionPresets.find(
+                    (p) => p.id === e.target.value,
+                  );
+                  patch(
+                    p
+                      ? { sectionPresetId: p.id, sections: clone(p.sections) }
+                      : { sectionPresetId: "" },
+                  );
+                }}
+              >
+                <option value="">自定义分栏</option>
+                {s.sectionPresets.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
                   </option>
                 ))}
               </select>
@@ -560,15 +581,40 @@ export function Composer({
               </section>
             );
           })}
-          <Field label="固定说明">
-            <textarea
-              value={draft.publicTexts.join("\n")}
-              onChange={(e) =>
-                patch({ publicTexts: e.target.value ? [e.target.value] : [] })
-              }
-              placeholder="致谢或制作说明（可选）"
-            />
-          </Field>
+          {!!draft.publicTexts.length && (
+            <Field label="固定说明">
+              <textarea
+                value={draft.publicTexts.join("\n")}
+                onChange={(e) =>
+                  patch({ publicTexts: e.target.value ? [e.target.value] : [] })
+                }
+                placeholder="致谢或制作说明（可选）"
+              />
+            </Field>
+          )}
+          <SectionsEditor
+            sections={
+              draft.sections ?? [
+                { ...newSection("credits"), id: "section-credits" },
+              ]
+            }
+            onChange={(sections) => patch({ sections, sectionPresetId: "" })}
+          />
+          <button
+            onClick={() =>
+              setSectionPreset({
+                id: uid(),
+                name: "",
+                sections: presetSections(
+                  draft.sections ?? [
+                    { ...newSection("credits"), id: "section-credits" },
+                  ],
+                ),
+              })
+            }
+          >
+            保存分栏预设
+          </button>
         </div>
         <aside className="preview-panel">
           <div className="section-line">
@@ -641,6 +687,10 @@ export function Composer({
                     templateId: draft.templateId,
                     publicTexts: clone(draft.publicTexts),
                     ...snapshotsFor(s, draft.bindings),
+                    sectionPresetId: draft.sectionPresetId,
+                    sections: draft.sections
+                      ? presetSections(draft.sections)
+                      : undefined,
                   };
                   if (existing < 0) d.workPresets.push(value);
                   else d.workPresets[existing] = value;
@@ -665,6 +715,12 @@ export function Composer({
             </footer>
           </form>
         </Modal>
+      )}
+      {sectionPreset && (
+        <SectionPresetEditor
+          value={sectionPreset}
+          onClose={() => setSectionPreset(null)}
+        />
       )}
     </>
   );

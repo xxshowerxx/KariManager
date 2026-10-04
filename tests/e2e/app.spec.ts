@@ -1,4 +1,133 @@
 import { test, expect } from "@playwright/test";
+test("分栏组合、多人账号、BV参考、本次说明与模板格式可保存恢复", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "制作借物表", exact: true }).click();
+  await expect(page.locator(".output-sections .node-card")).toHaveCount(1);
+  await page.getByLabel("添加分栏", { exact: true }).selectOption("creators");
+  const creators = page.getByRole("region", {
+    name: "制作人员分栏",
+    exact: true,
+  });
+  for (const [role, name, account] of [
+    ["主讲人", "讲者甲", "host"],
+    ["助教", "助教乙", "helper"],
+  ]) {
+    await creators
+      .getByRole("button", { name: "＋ 添加人员", exact: true })
+      .click();
+    const entry = creators.locator(".section-entry").last();
+    await entry.getByLabel("分工", { exact: true }).fill(role);
+    await entry.getByLabel("姓名", { exact: true }).fill(name);
+    await entry.getByLabel("账号", { exact: true }).fill(account);
+  }
+  await creators
+    .locator(".section-line")
+    .first()
+    .getByRole("button", { name: "上移", exact: true })
+    .click();
+  await page.getByLabel("添加分栏", { exact: true }).selectOption("fixedText");
+  await page
+    .getByRole("region", { name: "固定说明分栏", exact: true })
+    .getByLabel("固定说明", { exact: true })
+    .fill("固定文字");
+  await page
+    .getByLabel("添加分栏", { exact: true })
+    .selectOption("currentText");
+  await page
+    .getByRole("region", { name: "本次说明分栏", exact: true })
+    .getByLabel("本次说明", { exact: true })
+    .fill("仅本次文字");
+  await page.getByLabel("添加分栏", { exact: true }).selectOption("references");
+  const references = page.getByRole("region", {
+    name: "参考来源分栏",
+    exact: true,
+  });
+  await references
+    .getByRole("button", { name: "＋ 添加参考", exact: true })
+    .click();
+  await references.getByLabel("参考标题", { exact: true }).fill("参考视频");
+  await references.getByLabel("参考来源", { exact: true }).fill("BV1KG411o7Cs");
+  await references
+    .getByLabel("参考作者", { exact: true })
+    .fill("参考作者@account");
+  await expect(page.locator(".paper-preview")).toContainText(
+    "主讲人：讲者甲@host",
+  );
+  await page.getByLabel("作品标题", { exact: true }).fill("分栏作品");
+  await page.getByRole("button", { name: "输出并复制", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("借物表已输出");
+  await page.getByRole("button", { name: "保存分栏预设", exact: true }).click();
+  const preset = page.getByRole("dialog", { name: "分栏预设", exact: true });
+  await preset.getByLabel("预设名称", { exact: true }).fill("教程分栏");
+  await preset.getByRole("button", { name: "保存预设", exact: true }).click();
+  const saved = await page.evaluate(
+    () => JSON.parse(localStorage.getItem("kari-manager-v1")!).payload,
+  );
+  expect(saved.works[0].sections.map((s: { kind: string }) => s.kind)).toEqual([
+    "creators",
+    "credits",
+    "fixedText",
+    "currentText",
+    "references",
+  ]);
+  expect(
+    saved.sectionPresets[1].sections.find(
+      (s: { kind: string }) => s.kind === "currentText",
+    ).text,
+  ).toBe("");
+  await page.reload();
+  await page.getByRole("button", { name: "作品记录", exact: true }).click();
+  await page.getByRole("button", { name: "分栏作品", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "继续制作", exact: true })
+    .click();
+  await expect(page.locator(".paper-preview")).toContainText("仅本次文字");
+  await expect(references.getByLabel("参考来源", { exact: true })).toHaveValue(
+    "BV1KG411o7Cs",
+  );
+  await page.getByRole("button", { name: "预设", exact: true }).click();
+  await page.getByRole("button", { name: "输出模板", exact: true }).click();
+  await page
+    .getByRole("button", { name: "编辑格式", exact: true })
+    .first()
+    .click();
+  const template = page.getByRole("dialog", { name: "输出模板", exact: true });
+  await template.getByRole("button", { name: "分栏格式", exact: true }).click();
+  await template
+    .getByLabel("格式部分", { exact: true })
+    .selectOption("creatorSource");
+  await template
+    .getByLabel("制作人员格式", { exact: true })
+    .fill("{{#rows}}{{name}}@{{handle}} / {{role}}\n{{/rows}}");
+  await template.getByRole("button", { name: "保存模板", exact: true }).click();
+  await page.getByRole("button", { name: "制作借物表", exact: true }).click();
+  await expect(page.locator(".paper-preview")).toContainText(
+    "讲者甲@host / 主讲人",
+  );
+  await page
+    .getByLabel("分栏预设", { exact: true })
+    .selectOption(saved.sectionPresets[1].id);
+  await expect(
+    page
+      .getByRole("region", { name: "本次说明分栏", exact: true })
+      .getByLabel("本次说明", { exact: true }),
+  ).toHaveValue("");
+  await expect(page.locator(".paper-preview")).not.toContainText("仅本次文字");
+  await page.getByRole("button", { name: "预设", exact: true }).click();
+  await page.getByRole("button", { name: "分栏预设", exact: true }).click();
+  const download = page.waitForEvent("download");
+  await page
+    .locator(".card")
+    .filter({
+      has: page.getByRole("heading", { name: "教程分栏", exact: true }),
+    })
+    .getByRole("button", { name: "导出", exact: true })
+    .click();
+  expect((await download).suggestedFilename()).toBe("教程分栏-预设.json");
+});
 test("选择素材时创建临时与永久来源，记录和最终预设在重启后保留临时信息", async ({
   page,
 }) => {

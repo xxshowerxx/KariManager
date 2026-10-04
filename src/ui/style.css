@@ -998,3 +998,8 @@ td button {
     display: none;
   }
 }
+.section-entry {
+  padding: 14px 0;
+  border-bottom: 1px solid #ddd;
+  margin-bottom: 14px;
+}

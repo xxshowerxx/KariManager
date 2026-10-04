@@ -4,6 +4,7 @@ import { store, useStateData } from "../store";
 import * as platform from "../platform";
 import { Empty, Field, Modal, PageHeader, prettyDate, useTask } from "./common";
 import { LocalFileActions } from "./LocalFileActions";
+import { partyName } from "../core/sections";
 export function History({
   onOpen,
   initialWorkId = null,
@@ -116,10 +117,14 @@ export function History({
                       <p key={g.category.id}>
                         {g.category.label}：
                         {g.partyIds
-                          .map(
-                            (id) =>
-                              selected.partySnapshots?.find((p) => p.id === id)
-                                ?.name || "",
+                          .map((id) =>
+                            selected.partySnapshots?.find((p) => p.id === id)
+                              ? partyName(
+                                  selected.partySnapshots.find(
+                                    (p) => p.id === id,
+                                  )!,
+                                )
+                              : "",
                           )
                           .join(" / ")}
                       </p>

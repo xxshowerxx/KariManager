@@ -23,6 +23,7 @@ import {
 } from "../store";
 import * as platform from "../platform";
 import { importConflict, sourceCandidates } from "../core/files";
+import { partyInput, partyName, sourceTarget } from "../core/sections";
 import { LocalFileActions } from "./LocalFileActions";
 import { MaterialCategoryField } from "./MaterialCategoryField";
 import {
@@ -40,7 +41,10 @@ import {
 export function creditNames(m: Material, s: State) {
   return m.groups
     .flatMap((g) =>
-      g.partyIds.map((id) => s.parties.find((p) => p.id === id)?.name || ""),
+      g.partyIds.map((id) => {
+        const p = s.parties.find((p) => p.id === id);
+        return p ? partyName(p) : "";
+      }),
     )
     .filter(Boolean)
     .join(" / ");
@@ -75,11 +79,11 @@ export function MaterialEditor({
     const g = m.groups[groupIndex],
       name = (inputs[g.category.id] || "").trim();
     if (!name) return;
-    let p = pool.find((x) => x.name === name);
+    let p = pool.find((x) => partyName(x) === name);
     if (!p) {
       p = {
         id: uid(),
-        name,
+        ...partyInput(name),
         links: [],
         note: "",
         suffixMode: "default",
@@ -104,7 +108,9 @@ export function MaterialEditor({
         value.tags = value.tags.map((t) => t.trim()).filter(Boolean);
         const usedIds = new Set(value.groups.flatMap((g) => g.partyIds));
         for (const p of pool.filter((p) => usedIds.has(p.id))) {
-          const duplicate = d.parties.find((x) => x.name === p.name);
+          const duplicate = d.parties.find(
+            (x) => partyName(x) === partyName(p),
+          );
           if (duplicate) {
             for (const g of value.groups)
               g.partyIds = g.partyIds.map((id) =>
@@ -188,7 +194,7 @@ export function MaterialEditor({
             />
             <div className="small-actions">
               {m.sources
-                .filter((link) => /^https?:\/\//i.test(link.trim()))
+                .filter((link) => /^https?:\/\//i.test(sourceTarget(link)))
                 .map((link, i) => (
                   <button
                     type="button"
@@ -302,7 +308,9 @@ export function MaterialEditor({
               <div className="chips">
                 {g.partyIds.map((id, pi) => (
                   <span className="chip" key={`${id}-${pi}`}>
-                    {pool.find((p) => p.id === id)?.name || "条目已失效"}
+                    {pool.find((p) => p.id === id)
+                      ? partyName(pool.find((p) => p.id === id)!)
+                      : "条目已失效"}
                     <OrderButtons
                       index={pi}
                       length={g.partyIds.length}
@@ -318,7 +326,7 @@ export function MaterialEditor({
                     />
                     <button
                       type="button"
-                      aria-label={`移除${pool.find((p) => p.id === id)?.name}`}
+                      aria-label={`移除${pool.find((p) => p.id === id) ? partyName(pool.find((p) => p.id === id)!) : "条目"}`}
                       onClick={() => {
                         const groups = clone(m.groups);
                         groups[gi].partyIds.splice(pi, 1);
@@ -351,7 +359,7 @@ export function MaterialEditor({
                 />
                 <datalist id={`party-names-${g.category.id}`}>
                   {sourceCandidates(s, g.category).map((p) => (
-                    <option key={p.id} value={p.name} />
+                    <option key={p.id} value={partyName(p)} />
                   ))}
                 </datalist>
                 <button type="button" onClick={() => addParty(gi)}>
@@ -443,6 +451,14 @@ export function PartyEditor({
             onChange={(e) => set({ ...p, links: e.target.value.split("\n") })}
           />
         </Field>
+        <Field label="账号">
+          <input
+            value={p.handle ?? ""}
+            onChange={(e) =>
+              set({ ...p, handle: e.target.value.replace(/^@/, "") })
+            }
+          />
+        </Field>
         <Field label="备注">
           <textarea
             value={p.note}
@@ -504,7 +520,7 @@ export function Library({ onOpenWork }: { onOpenWork: (w: Work) => void }) {
   );
   const material = s.materials.find((m) => m.id === detail);
   const parties = s.parties.filter((p) =>
-    `${p.name} ${p.note} ${p.links.join(" ")}`
+    `${partyName(p)} ${p.note} ${p.links.join(" ")}`
       .toLowerCase()
       .includes(query.toLowerCase()),
   );
@@ -674,7 +690,7 @@ export function Library({ onOpenWork }: { onOpenWork: (w: Work) => void }) {
           {parties.map((p) => (
             <div className="card" key={p.id}>
               <div className="section-line">
-                <h3>{p.name}</h3>
+                <h3>{partyName(p)}</h3>
                 <button onClick={() => setPartyEditor(p)}>编辑</button>
               </div>
               <p>{p.note || "可在多份素材中复用"}</p>
