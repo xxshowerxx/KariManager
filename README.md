@@ -26,6 +26,8 @@
 
 素材目录可以按类别管理、浏览和筛选文件。资料库支持搜索，设置中可以备份、恢复资料或迁移数据目录。
 
+资料库和素材选择列表按创建时间从近到远显示；旧资料没有创建时间时，按原录入顺序倒序显示。选择素材时点名称或“详情”可查看资料，再点“编辑素材”修改；素材编辑窗口也可直接添加、编辑来源预设。
+
 ## 开发
 
 使用 Tauri 2、React、TypeScript 和 SQLite。需要 Node.js 20+、Rust stable MSVC、Visual Studio C++ Build Tools 与 Windows SDK。

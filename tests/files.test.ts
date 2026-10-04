@@ -2,6 +2,7 @@ import { expect, it } from "vitest";
 import { defaults, defaultFormat } from "../src/core/defaults";
 import {
   newMaterial,
+  materialSchema,
   draftFor,
   parseState,
   type Folder,
@@ -12,10 +13,49 @@ import {
   sourceCandidates,
   extensionList,
   folderCategories,
+  newestMaterials,
 } from "../src/core/files";
 import { contextFor, render, sourceFromFormat } from "../src/core/template";
 import { share, mergeBundle } from "../src/core/sharing";
 import type { Entry } from "../src/platform";
+it("素材按创建时间倒序排列，旧资料按录入顺序倒序，排序不修改原数组", () => {
+  const preset = defaults().sourcePresets[0];
+  const legacyOne = {
+    ...newMaterial(preset),
+    id: "old-one",
+    createdAt: undefined,
+  };
+  const legacyTwo = {
+    ...newMaterial(preset),
+    id: "old-two",
+    createdAt: undefined,
+  };
+  const earlier = {
+    ...newMaterial(preset),
+    id: "earlier",
+    createdAt: "2026-10-04T10:00:00+08:00",
+  };
+  const later = {
+    ...newMaterial(preset),
+    id: "later",
+    createdAt: "2026-10-04T03:00:00Z",
+  };
+  const input = [legacyOne, later, legacyTwo, earlier];
+  expect(newestMaterials(input).map((m) => m.id)).toEqual([
+    "later",
+    "earlier",
+    "old-two",
+    "old-one",
+  ]);
+  expect(input.map((m) => m.id)).toEqual([
+    "old-one",
+    "later",
+    "old-two",
+    "earlier",
+  ]);
+  // Optional timestamps keep existing backups readable without inventing dates.
+  expect(materialSchema.parse(legacyOne).createdAt).toBeUndefined();
+});
 const folder: Folder = {
   id: "f",
   name: "动作",

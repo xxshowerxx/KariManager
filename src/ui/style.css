@@ -736,6 +736,10 @@ td button {
   display: block;
   font-size: 11px;
 }
+.picker-row > span {
+  flex: 1;
+  min-width: 0;
+}
 .picker-row:hover {
   background: #f1f6fc;
 }

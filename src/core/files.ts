@@ -14,6 +14,17 @@ export const extensionList = (text: string) => [
       .filter(Boolean),
   ),
 ];
+// Legacy records have no timestamps; their append order records creation order.
+export function newestMaterials(materials: Material[]) {
+  return materials
+    .map((material, index) => ({ material, index }))
+    .sort(
+      (a, b) =>
+        (Date.parse(b.material.createdAt ?? "") || 0) -
+          (Date.parse(a.material.createdAt ?? "") || 0) || b.index - a.index,
+    )
+    .map(({ material }) => material);
+}
 export function importConflict(
   path: string,
   directory: boolean,

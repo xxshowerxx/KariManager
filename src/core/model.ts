@@ -38,6 +38,7 @@ export const materialSchema = z
     sources: list,
     path: text,
     pathKind: z.enum(["file", "directory"]).optional(),
+    createdAt: z.string().datetime({ offset: true }).optional(),
     folderId: text,
     relativePath: text,
     note: text,
@@ -470,6 +471,7 @@ export function usage(s: State, materialId: string) {
 export function newMaterial(p: SourcePreset): Material {
   return {
     id: uid(),
+    createdAt: new Date().toISOString(),
     name: "",
     sources: [],
     path: "",

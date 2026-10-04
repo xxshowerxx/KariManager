@@ -30,12 +30,14 @@ import {
   move,
   useTask,
 } from "./common";
-function SourceEditor({
+export function SourceEditor({
   value,
   onClose,
+  onSaved,
 }: {
   value: SourcePreset;
   onClose: () => void;
+  onSaved?: (value: SourcePreset) => void;
 }) {
   const [p, set] = useState(() => clone(value));
   const task = useTask();
@@ -50,6 +52,7 @@ function SourceEditor({
               if (i < 0) s.sourcePresets.push(p);
               else s.sourcePresets[i] = p;
             });
+            onSaved?.(p);
             onClose();
           }, "来源预设已保存");
         }}

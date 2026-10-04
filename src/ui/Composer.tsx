@@ -23,7 +23,8 @@ import {
   move,
   useTask,
 } from "./common";
-import { creditNames, MaterialEditor } from "./Library";
+import { creditNames, MaterialEditor, MaterialDetails } from "./Library";
+import { newestMaterials } from "../core/files";
 import { SectionsEditor, SectionPresetEditor } from "./Sections";
 import type { SectionPreset } from "../core/model";
 export function MaterialPicker({
@@ -41,10 +42,14 @@ export function MaterialPicker({
     session = useSessionMaterials(),
     s = withSnapshots(withSnapshots(base, session), snapshots),
     [creating, setCreating] = useState<Material | null>(null),
+    [detailId, setDetailId] = useState<string | null>(null),
     [ids, set] = useState(selected),
     [q, setQ] = useState(""),
     [category, setCategory] = useState("");
-  const visible = s.materials.filter(
+  const detail = s.materials.find((m) => m.id === detailId);
+  const availableIds = new Set(s.materials.map((m) => m.id));
+  const activeIds = ids.filter((id) => availableIds.has(id));
+  const visible = newestMaterials(s.materials).filter(
     (m) =>
       `${materialName(m)} ${creditNames(m, s)} ${m.note}`
         .toLowerCase()
@@ -79,9 +84,10 @@ export function MaterialPicker({
       </div>
       <div className="picker-list">
         {visible.map((m) => (
-          <label className="picker-row" key={m.id}>
+          <div className="picker-row" key={m.id}>
             <input
               type="checkbox"
+              aria-label={materialName(m)}
               checked={ids.includes(m.id)}
               onChange={(e) =>
                 set(
@@ -92,23 +98,33 @@ export function MaterialPicker({
               }
             />
             <span>
-              <strong>{materialName(m)}</strong>
+              <button className="text-link" onClick={() => setDetailId(m.id)}>
+                <strong>{materialName(m)}</strong>
+              </button>
               <small>
                 {m.category} · {creditNames(m, s)}
                 {!base.materials.some((x) => x.id === m.id) ? " · 临时" : ""}
               </small>
             </span>
-          </label>
+            <button
+              onClick={() => setDetailId(m.id)}
+              aria-label={`查看${materialName(m)}详情`}
+            >
+              详情
+            </button>
+          </div>
         ))}
         {!visible.length && <p className="muted">暂无素材</p>}
       </div>
       <footer className="modal-footer">
-        <span className="muted">已选择 {ids.length} 份 · 顺序按选择先后</span>
+        <span className="muted">
+          已选择 {activeIds.length} 份 · 顺序按选择先后
+        </span>
         <button onClick={onClose}>取消</button>
         <button
           className="primary"
           onClick={() => {
-            onSelect(ids);
+            onSelect(activeIds);
             onClose();
           }}
         >
@@ -121,7 +137,22 @@ export function MaterialPicker({
           allowTemporary
           snapshots={snapshots}
           onClose={() => setCreating(null)}
-          onSaved={(m) => set((current) => [...new Set([...current, m.id])])}
+          onSaved={(m) => {
+            if (!s.materials.some((x) => x.id === m.id))
+              set((current) => [...new Set([...current, m.id])]);
+          }}
+        />
+      )}
+      {detail && (
+        <MaterialDetails
+          material={detail}
+          s={s}
+          allowRemove={false}
+          onClose={() => setDetailId(null)}
+          onEdit={(m) => {
+            setDetailId(null);
+            setCreating(m);
+          }}
         />
       )}
     </Modal>

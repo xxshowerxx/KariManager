@@ -14,6 +14,7 @@ import {
   type State,
   type Work,
   type MaterialSnapshots,
+  type SourcePreset,
 } from "../core/model";
 import {
   store,
@@ -22,7 +23,12 @@ import {
   useSessionMaterials,
 } from "../store";
 import * as platform from "../platform";
-import { importConflict, sourceCandidates } from "../core/files";
+import {
+  importConflict,
+  sourceCandidates,
+  newestMaterials,
+} from "../core/files";
+import { SourceEditor } from "./Presets";
 import { partyInput, partyName, sourceTarget } from "../core/sections";
 import { LocalFileActions } from "./LocalFileActions";
 import { MaterialCategoryField } from "./MaterialCategoryField";
@@ -80,6 +86,7 @@ export function MaterialEditor({
       allowTemporary && !base.materials.some((x) => x.id === initial.id),
     ),
     [pending, setPending] = useState<Party[]>([]),
+    [sourceEditor, setSourceEditor] = useState<SourcePreset | null>(null),
     [inputs, setInputs] = useState<Record<string, string>>({});
   const task = useTask(),
     notice = useNotice();
@@ -275,28 +282,56 @@ export function MaterialEditor({
         </div>
         <div className="section-line">
           <h3>署名来源</h3>
-          <select
-            aria-label="来源预设"
-            value={m.sourcePresetId}
-            onChange={(e) => {
-              const p = s.sourcePresets.find((x) => x.id === e.target.value)!;
-              patch({
-                sourcePresetId: p.id,
-                groups: p.categories.map((category) => ({
-                  category: clone(category),
-                  partyIds:
-                    m.groups.find((g) => g.category.id === category.id)
-                      ?.partyIds || [],
-                })),
-              });
-            }}
-          >
-            {s.sourcePresets.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+          <div className="small-actions">
+            <select
+              aria-label="来源预设"
+              value={m.sourcePresetId}
+              onChange={(e) => {
+                const p = s.sourcePresets.find((x) => x.id === e.target.value)!;
+                patch({
+                  sourcePresetId: p.id,
+                  groups: p.categories.map((category) => ({
+                    category: clone(category),
+                    partyIds:
+                      m.groups.find((g) => g.category.id === category.id)
+                        ?.partyIds || [],
+                  })),
+                });
+              }}
+            >
+              {s.sourcePresets.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => {
+                const preset =
+                  s.sourcePresets.find((p) => p.id === m.sourcePresetId) ??
+                  s.sourcePresets[0];
+                setSourceEditor({
+                  ...clone(preset),
+                  id: uid(),
+                  name: "新来源预设",
+                });
+              }}
+            >
+              添加来源预设
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const preset = s.sourcePresets.find(
+                  (p) => p.id === m.sourcePresetId,
+                );
+                if (preset) setSourceEditor(clone(preset));
+              }}
+            >
+              编辑来源预设
+            </button>
+          </div>
         </div>
         <p className="muted compact">作者必填，其余可选；输出按以下顺序连接</p>
         <div className="source-groups">
@@ -423,6 +458,30 @@ export function MaterialEditor({
           </button>
         </footer>
       </form>
+      {sourceEditor && (
+        <SourceEditor
+          value={sourceEditor}
+          onClose={() => setSourceEditor(null)}
+          onSaved={(preset) => {
+            patch({
+              sourcePresetId: preset.id,
+              groups: [
+                ...preset.categories.map((category) => ({
+                  category: clone(category),
+                  partyIds:
+                    m.groups.find((g) => g.category.id === category.id)
+                      ?.partyIds ?? [],
+                })),
+                ...m.groups.filter(
+                  (g) =>
+                    g.partyIds.length &&
+                    !preset.categories.some((c) => c.id === g.category.id),
+                ),
+              ],
+            });
+          }}
+        />
+      )}
     </Modal>
   );
 }
@@ -532,7 +591,7 @@ export function Library({ onOpenWork }: { onOpenWork: (w: Work) => void }) {
     [detail, setDetail] = useState<string | null>(null),
     [partyEditor, setPartyEditor] = useState<Party | true | null>(null);
   const task = useTask();
-  const visible = s.materials.filter(
+  const visible = newestMaterials(s.materials).filter(
     (m) =>
       `${materialName(m)} ${creditNames(m, s)} ${m.note} ${m.tags.join(" ")} ${m.path} ${m.sources.join(" ")}`
         .toLocaleLowerCase()
@@ -768,106 +827,141 @@ export function Library({ onOpenWork }: { onOpenWork: (w: Work) => void }) {
         />
       )}
       {material && (
-        <Modal
-          title={materialName(material)}
+        <MaterialDetails
+          material={material}
+          s={s}
           onClose={() => setDetail(null)}
-          wide
-        >
-          <div className="detail-summary">
-            <span className="badge">{material.category}</span>
-            <span>{creditNames(material, s)}</span>
-          </div>
-          <div className="small-actions">
-            {material.sources.filter(Boolean).map((link, i) => (
-              <button
-                key={i}
-                onClick={() => void task(() => platform.openTarget(link))}
-              >
-                来源 {i + 1} ↗
-              </button>
-            ))}
-            {materialPath(material, s) && (
-              <>
-                <button
-                  onClick={() =>
-                    void task(() =>
-                      platform.openTarget(materialPath(material, s)),
-                    )
-                  }
-                >
-                  打开素材
-                </button>
-                <button
-                  onClick={() =>
-                    void task(() =>
-                      platform.openTarget(materialPath(material, s), true),
-                    )
-                  }
-                >
-                  所在目录
-                </button>
-                <button
-                  onClick={() =>
-                    void task(async () => {
-                      if (!(await platform.exists(materialPath(material, s))))
-                        throw new Error("本地路径已失效，请重新定位");
-                    }, "本地路径有效")
-                  }
-                >
-                  检查路径
-                </button>
-              </>
-            )}
-          </div>
-          <p className="path-text">{materialPath(material, s)}</p>
-          <p className="note-text">{material.note || "暂无备注"}</p>
-          <h3>使用记录 · {usage(s, material.id).length} 次</h3>
-          {usage(s, material.id).map((w) => (
-            <button
-              className="history-link"
-              key={w.id}
-              onClick={() => {
-                setDetail(null);
-                onOpenWork(w);
-              }}
-            >
-              <span>
-                {w.title}
-                <small>
-                  {w.domainName} · {prettyDate(w.date)}
-                </small>
-              </span>
-              <span>查看 →</span>
-            </button>
-          ))}
-          <footer className="modal-footer">
-            <button
-              className="danger text"
-              onClick={() => {
-                if (!confirm("删除该素材的资料记录？磁盘文件会保留")) return;
-                void task(
-                  () =>
-                    store.update((d) => {
-                      removeMaterial(d, material.id);
-                      setDetail(null);
-                    }),
-                  "已删除素材记录",
-                );
-              }}
-            >
-              删除记录
-            </button>
-            <button
-              onClick={() => {
-                setEditor(material);
-                setDetail(null);
-              }}
-            >
-              编辑素材
-            </button>
-          </footer>
-        </Modal>
+          onOpenWork={onOpenWork}
+          onEdit={(m) => {
+            setEditor(m);
+            setDetail(null);
+          }}
+        />
       )}
     </>
+  );
+}
+
+export function MaterialDetails({
+  material,
+  s,
+  onClose,
+  onEdit,
+  onOpenWork,
+  allowRemove = true,
+}: {
+  material: Material;
+  s: State;
+  onClose: () => void;
+  onEdit: (m: Material) => void;
+  onOpenWork?: (w: Work) => void;
+  allowRemove?: boolean;
+}) {
+  const task = useTask();
+  return (
+    <Modal title={materialName(material)} onClose={onClose} wide>
+      <div className="detail-summary">
+        <span className="badge">{material.category}</span>
+        <span>{creditNames(material, s)}</span>
+      </div>
+      <div className="small-actions">
+        {material.sources.filter(Boolean).map((link, i) => (
+          <button
+            key={i}
+            onClick={() => void task(() => platform.openTarget(link))}
+          >
+            来源 {i + 1} ↗
+          </button>
+        ))}
+        {materialPath(material, s) && (
+          <>
+            <button
+              onClick={() =>
+                void task(() => platform.openTarget(materialPath(material, s)))
+              }
+            >
+              打开素材
+            </button>
+            <button
+              onClick={() =>
+                void task(() =>
+                  platform.openTarget(materialPath(material, s), true),
+                )
+              }
+            >
+              所在目录
+            </button>
+            <button
+              onClick={() =>
+                void task(async () => {
+                  if (!(await platform.exists(materialPath(material, s))))
+                    throw new Error("本地路径已失效，请重新定位");
+                }, "本地路径有效")
+              }
+            >
+              检查路径
+            </button>
+          </>
+        )}
+      </div>
+      <p className="path-text">{materialPath(material, s)}</p>
+      <div className="chips">
+        {material.tags.map((tag) => (
+          <span className="badge" key={tag}>
+            {tag}
+          </span>
+        ))}
+      </div>
+      <p className="note-text">{material.note || "暂无备注"}</p>
+      <h3>使用记录 · {usage(s, material.id).length} 次</h3>
+      {usage(s, material.id).map((w) => (
+        <button
+          className="history-link"
+          disabled={!onOpenWork}
+          key={w.id}
+          onClick={() => {
+            onClose();
+            onOpenWork?.(w);
+          }}
+        >
+          <span>
+            {w.title}
+            <small>
+              {w.domainName} · {prettyDate(w.date)}
+            </small>
+          </span>
+          <span>查看 →</span>
+        </button>
+      ))}
+      <footer className="modal-footer">
+        {allowRemove && (
+          <button
+            className="danger text"
+            onClick={() => {
+              if (!confirm("删除该素材的资料记录？磁盘文件会保留")) return;
+              void task(
+                () =>
+                  store.update((d) => {
+                    removeMaterial(d, material.id);
+                    onClose();
+                  }),
+                "已删除素材记录",
+              );
+            }}
+          >
+            删除记录
+          </button>
+        )}
+        <button
+          onClick={() => {
+            onEdit(material);
+            onClose();
+          }}
+        >
+          编辑素材
+        </button>
+        <button onClick={onClose}>关闭详情</button>
+      </footer>
+    </Modal>
   );
 }
