@@ -98,14 +98,14 @@ export function Empty({
   children,
 }: {
   title: string;
-  description: string;
+  description?: string;
   children?: ReactNode;
 }) {
   return (
     <div className="empty">
       <div className="empty-mark">⌁</div>
       <h2>{title}</h2>
-      <p>{description}</p>
+      {description && <p>{description}</p>}
       {children}
     </div>
   );
@@ -162,14 +162,14 @@ export function PageHeader({
   actions,
 }: {
   title: string;
-  description: string;
+  description?: string;
   actions?: ReactNode;
 }) {
   return (
     <div className="page-header">
       <div>
         <h1>{title}</h1>
-        <p>{description}</p>
+        {description && <p>{description}</p>}
       </div>
       <div className="header-actions">{actions}</div>
     </div>

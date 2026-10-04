@@ -26,10 +26,7 @@ export function History({
   const selected = s.works.find((w) => w.id === detail);
   return (
     <>
-      <PageHeader
-        title="作品记录"
-        description="作品记录随输出自动建立，保留当时的完整署名"
-      />
+      <PageHeader title="作品记录" description="作品记录随输出自动建立" />
       <div className="toolbar">
         <input
           className="search"
@@ -86,10 +83,7 @@ export function History({
           </table>
         </div>
       ) : (
-        <Empty
-          title={filter === "active" ? "暂无作品记录" : "暂无记录"}
-          description="选入素材并输出借物表，就会保存日期、领域与使用记录"
-        />
+        <Empty title={filter === "active" ? "暂无作品记录" : "暂无记录"} />
       )}
       {selected && (
         <Modal title={selected.title} onClose={() => setDetail(null)} wide>

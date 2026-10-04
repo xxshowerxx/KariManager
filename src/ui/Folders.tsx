@@ -41,7 +41,6 @@ export function Folders() {
     <>
       <PageHeader
         title="素材目录"
-        description="指定类别与目录，需要时浏览文件，再补充作者录入资料库"
         actions={
           <button
             className="primary"
@@ -176,10 +175,7 @@ export function Folders() {
               </div>
             </>
           ) : (
-            <Empty
-              title="选择目录浏览"
-              description="只在点击浏览时读取目录，不会自动解析作者"
-            />
+            <Empty title="选择目录浏览" />
           )}
         </div>
       </div>

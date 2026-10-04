@@ -833,7 +833,7 @@ export function Presets({
                 {p.categories.map((c) => (
                   <span className="chip" key={c.id}>
                     {c.label}
-                    {c.author ? " *" : ""}
+                    {c.author && <span className="required"> *</span>}
                   </span>
                 ))}
               </div>

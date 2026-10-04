@@ -596,7 +596,6 @@ export function Library({ onOpenWork }: { onOpenWork: (w: Work) => void }) {
               title={
                 s.materials.length ? "没有符合条件的素材" : "从第一份素材开始"
               }
-              description="记录作者，再填写名称、来源链接或本地路径。其他信息可以慢慢补全"
             >
               <button
                 className="primary"
